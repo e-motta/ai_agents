@@ -1,0 +1,55 @@
+# ========================================
+# Global ignores
+# ========================================
+# OS / Editor
+.DS_Store
+Thumbs.db
+*.log
+*.tmp
+*.swp
+*.swo
+.vscode/
+.idea/
+
+# ========================================
+# Python
+# ========================================
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.pyd
+*.so
+*.egg-info/
+*.eggs/
+.venv/
+backend/.pytest_cache/
+backend/.mypy_cache/
+backend/.ruff_cache/
+backend/.coverage
+backend/htmlcov/
+backend/.env
+backend/env/
+backend/venv/
+
+# ========================================
+# Node/React (frontend/)
+# ========================================
+frontend/node_modules/
+frontend/.parcel-cache/
+frontend/.next/
+frontend/.nuxt/
+frontend/dist/
+frontend/build/
+frontend/.env.local
+frontend/.env.development.local
+frontend/.env.test.local
+frontend/.env.production.local
+
+# ========================================
+# General cache & dependencies
+# ========================================
+node_modules/
+dist/
+build/
+*.lock
