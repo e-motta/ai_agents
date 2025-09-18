@@ -1,2 +1,9 @@
 FastAPI
 uvicorn
+langchain
+langchain-openai
+langchain-community
+langgraph
+pytest
+pytest-asyncio
+pytest-mock
