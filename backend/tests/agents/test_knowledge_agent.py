@@ -16,7 +16,6 @@ from app.agents.knowledge_agent import (
     _extract_sources_from_response,
     get_index_stats,
     reset_knowledge_base,
-    crawl_and_update,
     VECTOR_STORE_PATH,
     BASE_URL,
     COLLECTION_NAME,
@@ -823,44 +822,6 @@ class TestResetKnowledgeBase:
 
         # Act
         reset_knowledge_base()
-
-        # Assert
-        mock_rmtree.assert_not_called()
-        mock_create_vector_store.assert_called_once()
-
-
-class TestCrawlAndUpdate:
-    """Test the crawl_and_update function."""
-
-    @patch("shutil.rmtree")
-    @patch("app.agents.knowledge_agent._create_vector_store")
-    @patch("app.agents.knowledge_agent.VECTOR_STORE_PATH")
-    def test_crawl_and_update_success(
-        self, mock_path, mock_create_vector_store, mock_rmtree
-    ):
-        """Test successful crawl and update."""
-        # Arrange
-        mock_path.exists.return_value = True
-
-        # Act
-        crawl_and_update()
-
-        # Assert
-        mock_rmtree.assert_called_once_with(mock_path)
-        mock_create_vector_store.assert_called_once()
-
-    @patch("shutil.rmtree")
-    @patch("app.agents.knowledge_agent._create_vector_store")
-    @patch("app.agents.knowledge_agent.VECTOR_STORE_PATH")
-    def test_crawl_and_update_path_not_exists(
-        self, mock_path, mock_create_vector_store, mock_rmtree
-    ):
-        """Test crawl and update when path doesn't exist."""
-        # Arrange
-        mock_path.exists.return_value = False
-
-        # Act
-        crawl_and_update()
 
         # Assert
         mock_rmtree.assert_not_called()

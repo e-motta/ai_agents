@@ -4,8 +4,10 @@ Enhanced with comprehensive multi-level crawling.
 """
 
 import os
+import shutil
 import logging
 import time
+import threading
 from pathlib import Path
 from typing import Optional, List, Set, Dict, Any
 from urllib.parse import urljoin
@@ -22,6 +24,7 @@ from llama_index.llms.openai import OpenAI
 from llama_index.embeddings.openai import OpenAIEmbedding
 from llama_index.vector_stores.chroma import ChromaVectorStore
 import chromadb
+
 from app.security.prompts import KNOWLEDGE_AGENT_SYSTEM_PROMPT
 
 # Configure logging
@@ -29,6 +32,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Global variables for the index and query engine
+_agent_lock = threading.Lock()
 _index: Optional[VectorStoreIndex] = None
 _query_engine = None
 
@@ -344,11 +348,12 @@ def initialize_knowledge_agent():
     """Initialize the knowledge agent by creating or loading the vector store."""
     global _index, _query_engine
 
-    if _index is None or _query_engine is None:
-        logger.info("Initializing knowledge agent...")
-        _create_vector_store()
+    with _agent_lock:
+        if _index is None or _query_engine is None:
+            logger.info("Initializing knowledge agent...")
+            _create_vector_store()
 
-    logger.info("Knowledge agent initialized successfully!")
+        logger.info("Knowledge agent initialized successfully!")
 
 
 def _extract_sources_from_response(response) -> List[str]:
@@ -399,7 +404,11 @@ def query_knowledge(query: str) -> str:
     """
     global _query_engine
 
-    if _query_engine is None:
+    # Acquire lock for the shortest time possible to get a local reference
+    with _agent_lock:
+        local_query_engine = _query_engine
+
+    if local_query_engine is None:
         raise ValueError(
             "Knowledge agent not initialized. Call initialize_knowledge_agent() first."
         )
@@ -407,8 +416,8 @@ def query_knowledge(query: str) -> str:
     start_time = time.time()
 
     try:
-        # Query the knowledge base
-        response = _query_engine.query(query)
+        # Query the knowledge base using local reference
+        response = local_query_engine.query(query)
 
         # Extract the response text
         answer = str(response).strip()
@@ -439,7 +448,11 @@ def get_index_stats() -> dict:
     """
     global _index
 
-    if _index is None:
+    # Acquire lock for the shortest time possible to get a local reference
+    with _agent_lock:
+        local_index = _index
+
+    if local_index is None:
         return {"status": "not_initialized"}
 
     try:
@@ -452,8 +465,8 @@ def get_index_stats() -> dict:
 
         # Try to get more detailed stats if possible
         try:
-            if hasattr(_index, "docstore") and _index.docstore:
-                stats["document_count"] = len(_index.docstore.docs)
+            if hasattr(local_index, "docstore") and local_index.docstore:
+                stats["document_count"] = len(local_index.docstore.docs)
         except:
             pass
 
@@ -468,56 +481,24 @@ def reset_knowledge_base():
     """Reset the knowledge base by deleting the vector store and recreating it."""
     global _index, _query_engine
 
-    try:
-        logger.info("Resetting knowledge base...")
+    with _agent_lock:
+        try:
+            logger.info("Resetting knowledge base...")
 
-        # Clear global variables
-        _index = None
-        _query_engine = None
+            # Clear global variables
+            _index = None
+            _query_engine = None
 
-        # Remove the vector store directory
-        if VECTOR_STORE_PATH.exists():
-            import shutil
+            # Remove the vector store directory
+            if VECTOR_STORE_PATH.exists():
+                shutil.rmtree(VECTOR_STORE_PATH)
+                logger.info("Vector store directory removed")
 
-            shutil.rmtree(VECTOR_STORE_PATH)
-            logger.info("Vector store directory removed")
+            # Recreate the knowledge base
+            _create_vector_store()
 
-        # Recreate the knowledge base
-        _create_vector_store()
+            logger.info("Knowledge base reset successfully!")
 
-        logger.info("Knowledge base reset successfully!")
-
-    except Exception as e:
-        logger.error(f"Error resetting knowledge base: {str(e)}")
-        raise
-
-
-def crawl_and_update():
-    """
-    Perform a fresh crawl of the help center and update the knowledge base.
-    This function can be called to refresh the knowledge base with latest content.
-    """
-    global _index, _query_engine
-
-    try:
-        logger.info("Starting fresh crawl and knowledge base update...")
-
-        # Clear global variables
-        _index = None
-        _query_engine = None
-
-        # Remove the vector store directory
-        if VECTOR_STORE_PATH.exists():
-            import shutil
-
-            shutil.rmtree(VECTOR_STORE_PATH)
-            logger.info("Vector store directory removed")
-
-        # Create new knowledge base
-        _create_vector_store()
-
-        logger.info("Knowledge base updated successfully!")
-
-    except Exception as e:
-        logger.error(f"Error updating knowledge base: {str(e)}")
-        raise
+        except Exception as e:
+            logger.error(f"Error resetting knowledge base: {str(e)}")
+            raise
