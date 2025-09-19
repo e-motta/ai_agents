@@ -32,6 +32,7 @@ backend/htmlcov/
 backend/.env
 backend/env/
 backend/venv/
+backend/vector_store/
 
 # ========================================
 # Node/React (frontend/)
