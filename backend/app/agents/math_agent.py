@@ -6,6 +6,8 @@ import os
 from langchain_openai import ChatOpenAI
 from langchain.schema import HumanMessage, SystemMessage
 
+from app.security.prompts import MATH_AGENT_SYSTEM_PROMPT
+
 
 def solve_math(query: str) -> str:
     """
@@ -28,28 +30,9 @@ def solve_math(query: str) -> str:
     # Initialize the LLM
     llm = ChatOpenAI(model="gpt-3.5-turbo", temperature=0, api_key=api_key)
 
-    # System prompt instructing the LLM to act as a calculator
-    system_prompt = """You are a mathematical calculator. Your job is to evaluate mathematical expressions and return ONLY the numerical result.
-
-Rules:
-1. Evaluate the mathematical expression provided
-2. Return ONLY the final numerical result as a string
-3. Do not include any explanations, steps, or additional text
-4. If the expression is invalid or cannot be evaluated, return "Error"
-5. Use standard mathematical notation and operations
-6. Handle basic arithmetic, algebra, and other common mathematical operations
-
-Examples:
-- Input: "How much is 2 + 3" → Output: "5"
-- Input: "10 * 5" → Output: "50"
-- Input: "sqrt(16)" → Output: "4"
-- Input: "2^3" → Output: "8"
-- Input: "sin(pi/2)" → Output: "1"
-"""
-
     # Create messages
     messages = [
-        SystemMessage(content=system_prompt),
+        SystemMessage(content=MATH_AGENT_SYSTEM_PROMPT),
         HumanMessage(content=f"Evaluate this mathematical expression: {query}"),
     ]
 
