@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException, Depends
-from typing import Dict, List, Callable, Tuple
+from typing import Dict, List, Callable, Tuple, Union, Awaitable
 
 from app.dependencies import get_router_llm, get_math_llm, initialize_knowledge
 from app.agents.router_agent import route_query
@@ -12,10 +12,10 @@ from app.models import ChatRequest, ChatResponse, WorkflowStep
 router = APIRouter()
 
 
-def _process_math(message: str, math_llm) -> Tuple[str, WorkflowStep]:
+async def _process_math(message: str, math_llm) -> Tuple[str, WorkflowStep]:
     """Handle MathAgent flow and return response and workflow step."""
     try:
-        final_response = solve_math(message, math_llm)
+        final_response = await solve_math(message, math_llm)
         return final_response, WorkflowStep(
             agent="MathAgent", action="solve_math", result=final_response
         )
@@ -53,7 +53,10 @@ def _process_error(_: str) -> Tuple[str, WorkflowStep]:
     )
 
 
-HANDLER_BY_DECISION: Dict[ResponseEnum, Callable[..., Tuple[str, WorkflowStep]]] = {
+HANDLER_BY_DECISION: Dict[
+    ResponseEnum,
+    Callable[..., Union[Tuple[str, WorkflowStep], Awaitable[Tuple[str, WorkflowStep]]]],
+] = {
     ResponseEnum.MathAgent: _process_math,
     ResponseEnum.KnowledgeAgent: _process_knowledge,
     ResponseEnum.UnsupportedLanguage: _process_unsupported_language,
@@ -72,7 +75,7 @@ async def chat(
         raise HTTPException(status_code=422, detail="'message' cannot be empty")
 
     try:
-        decision = route_query(payload.message, llm=router_llm)
+        decision = await route_query(payload.message, llm=router_llm)
     except Exception:
         decision = ResponseEnum.Error
 
@@ -82,7 +85,7 @@ async def chat(
 
     handler = HANDLER_BY_DECISION.get(decision, _process_error)  # type: ignore
     if handler is _process_math:
-        final_response, step = handler(payload.message, math_llm)
+        final_response, step = await handler(payload.message, math_llm)
     else:
         final_response, step = handler(payload.message)
     agent_workflow.append(step)
