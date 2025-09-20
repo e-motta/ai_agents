@@ -15,3 +15,5 @@ chromadb
 requests
 beautifulsoup4
 openai
+pydantic>=2.7.0
+pydantic-settings>=2.2.0
