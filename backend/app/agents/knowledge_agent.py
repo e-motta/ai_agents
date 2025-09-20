@@ -7,6 +7,7 @@ import shutil
 import logging
 import time
 import threading
+from functools import lru_cache
 from pathlib import Path
 from typing import Optional, List, Set, Dict, Any
 from urllib.parse import urljoin
@@ -340,6 +341,18 @@ def initialize_knowledge_agent():
             _create_vector_store()
 
         logger.info("Knowledge agent initialized successfully!")
+
+
+@lru_cache(maxsize=1)
+def get_knowledge_agent() -> bool:
+    """
+    Dependency: ensure the knowledge agent is initialized once and cached.
+
+    Returns True if initialized. The boolean return is a lightweight sentinel
+    that can be injected to guarantee initialization side-effect.
+    """
+    initialize_knowledge_agent()
+    return True
 
 
 def _extract_sources_from_response(response) -> List[str]:

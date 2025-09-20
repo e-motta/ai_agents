@@ -6,6 +6,7 @@ across all agents, ensuring uniform configuration and easy maintenance.
 """
 
 from typing import Optional
+from functools import lru_cache
 
 from langchain_openai import ChatOpenAI
 from llama_index.llms.openai import OpenAI as LlamaIndexOpenAI
@@ -80,6 +81,32 @@ def get_math_agent_llm() -> ChatOpenAI:
 def get_router_agent_llm() -> ChatOpenAI:
     """Get ChatOpenAI LLM configured for router agent."""
     return get_chat_openai_llm(model="gpt-3.5-turbo", temperature=0)
+
+
+# =============================
+# FastAPI dependency providers
+# =============================
+
+@lru_cache(maxsize=1)
+def get_math_llm() -> ChatOpenAI:
+    """
+    Dependency: return a cached instance of the math LLM.
+
+    Uses LRU cache to ensure the expensive client is created once
+    per process and reused across requests.
+    """
+    return get_math_agent_llm()
+
+
+@lru_cache(maxsize=1)
+def get_router_llm() -> ChatOpenAI:
+    """
+    Dependency: return a cached instance of the router LLM.
+
+    Uses LRU cache to ensure the expensive client is created once
+    per process and reused across requests.
+    """
+    return get_router_agent_llm()
 
 
 def setup_knowledge_agent_settings() -> None:
