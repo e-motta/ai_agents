@@ -6,13 +6,12 @@ UnsupportedLanguage and Error response handling.
 """
 
 import pytest
-from unittest.mock import Mock, patch
+from unittest.mock import Mock
 from app.agents.router_agent import (
     route_query,
     _validate_response,
     _detect_suspicious_content,
 )
-from app.core.clients import get_openai_client
 
 
 class TestValidateResponse:
@@ -297,53 +296,3 @@ class TestRouteQuery:
 
         result = route_query("test query", llm=mock_llm)
         assert result == "Error"
-
-
-class TestGetOpenAIClient:
-    """Test the get_openai_client function."""
-
-    @patch("app.core.clients.OpenAI")
-    @patch.dict("os.environ", {"OPENAI_API_KEY": "test-key"})
-    def test_get_openai_client_creates_new_client(self, mock_openai):
-        """Test that get_openai_client creates a new OpenAI client."""
-        mock_client = Mock()
-        mock_openai.return_value = mock_client
-
-        # Clear any existing client cache
-        get_openai_client.cache_clear()
-
-        result = get_openai_client()
-        assert result == mock_client
-        mock_openai.assert_called_once_with(api_key="test-key")
-
-    @patch("app.core.clients.OpenAI")
-    @patch.dict("os.environ", {"OPENAI_API_KEY": "test-key"})
-    def test_get_openai_client_reuses_cached_client(self, mock_openai):
-        """Test that get_openai_client reuses cached client."""
-        mock_client = Mock()
-        mock_openai.return_value = mock_client
-
-        # Clear any existing client cache
-        get_openai_client.cache_clear()
-
-        # First call
-        result1 = get_openai_client()
-        assert result1 == mock_client
-        mock_openai.assert_called_once_with(api_key="test-key")
-
-        # Second call should use cache
-        mock_openai.reset_mock()
-        result2 = get_openai_client()
-        assert result2 == mock_client
-        mock_openai.assert_not_called()
-
-    @patch.dict("os.environ", {}, clear=True)
-    def test_get_openai_client_missing_api_key_raises_valueerror(self):
-        """Test that get_openai_client raises ValueError when API key is missing."""
-        # Clear any existing client cache
-        get_openai_client.cache_clear()
-
-        with pytest.raises(
-            ValueError, match="OPENAI_API_KEY environment variable is required"
-        ):
-            get_openai_client()

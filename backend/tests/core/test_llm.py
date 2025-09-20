@@ -17,73 +17,74 @@ from app.core.llm import (
     get_router_agent_llm,
     setup_knowledge_agent_settings,
 )
+from app.core.settings import reset_settings_cache
 
 
 class TestGetChatOpenAILlm:
     """Test the get_chat_openai_llm function."""
 
     @patch("app.core.llm.ChatOpenAI")
-    def test_get_chat_openai_llm_with_api_key(self, mock_chat_openai):
-        """Test creating ChatOpenAI with explicit API key."""
+    @patch.dict("os.environ", {"OPENAI_API_KEY": "env-key"})
+    def test_get_chat_openai_llm_with_custom_model_and_temperature(
+        self, mock_chat_openai
+    ):
+        """Test creating ChatOpenAI with custom model and temperature (env provides key)."""
+        reset_settings_cache()
         mock_instance = Mock()
         mock_chat_openai.return_value = mock_instance
 
-        result = get_chat_openai_llm(model="gpt-4", temperature=0.5, api_key="test-key")
+        result = get_chat_openai_llm(model="gpt-4", temperature=0.5)
 
         assert result == mock_instance
-        mock_chat_openai.assert_called_once_with(
-            model="gpt-4", temperature=0.5, api_key="test-key"
-        )
+        mock_chat_openai.assert_called_once_with(model="gpt-4", temperature=0.5)
 
     @patch("app.core.llm.ChatOpenAI")
     @patch.dict("os.environ", {"OPENAI_API_KEY": "env-key"})
     def test_get_chat_openai_llm_with_env_key(self, mock_chat_openai):
         """Test creating ChatOpenAI with environment API key."""
+        reset_settings_cache()
         mock_instance = Mock()
         mock_chat_openai.return_value = mock_instance
 
         result = get_chat_openai_llm(model="gpt-3.5-turbo", temperature=0)
 
         assert result == mock_instance
-        mock_chat_openai.assert_called_once_with(
-            model="gpt-3.5-turbo", temperature=0, api_key="env-key"
-        )
+        mock_chat_openai.assert_called_once_with(model="gpt-3.5-turbo", temperature=0)
 
     @patch.dict("os.environ", {}, clear=True)
     def test_get_chat_openai_llm_missing_api_key_raises_error(self):
         """Test that missing API key raises ValueError."""
+        reset_settings_cache()
         with pytest.raises(
             ValueError, match="OPENAI_API_KEY environment variable is required"
         ):
             get_chat_openai_llm()
 
     @patch("app.core.llm.ChatOpenAI")
+    @patch.dict("os.environ", {"OPENAI_API_KEY": "env-key"})
     def test_get_chat_openai_llm_default_parameters(self, mock_chat_openai):
-        """Test creating ChatOpenAI with default parameters."""
+        """Test creating ChatOpenAI with default parameters (env provides key)."""
+        reset_settings_cache()
         mock_instance = Mock()
         mock_chat_openai.return_value = mock_instance
 
-        result = get_chat_openai_llm(api_key="test-key")
+        result = get_chat_openai_llm()
 
         assert result == mock_instance
-        mock_chat_openai.assert_called_once_with(
-            model="gpt-3.5-turbo", temperature=0, api_key="test-key"
-        )
+        mock_chat_openai.assert_called_once_with(model="gpt-3.5-turbo", temperature=0)
 
     @patch("app.core.llm.ChatOpenAI")
+    @patch.dict("os.environ", {"OPENAI_API_KEY": "env-key"})
     def test_get_chat_openai_llm_custom_model_and_temperature(self, mock_chat_openai):
-        """Test creating ChatOpenAI with custom model and temperature."""
+        """Test creating ChatOpenAI with custom model and temperature (env provides key)."""
+        reset_settings_cache()
         mock_instance = Mock()
         mock_chat_openai.return_value = mock_instance
 
-        result = get_chat_openai_llm(
-            model="gpt-4-turbo", temperature=0.7, api_key="test-key"
-        )
+        result = get_chat_openai_llm(model="gpt-4-turbo", temperature=0.7)
 
         assert result == mock_instance
-        mock_chat_openai.assert_called_once_with(
-            model="gpt-4-turbo", temperature=0.7, api_key="test-key"
-        )
+        mock_chat_openai.assert_called_once_with(model="gpt-4-turbo", temperature=0.7)
 
 
 class TestSetupLlamaIndexSettings:
@@ -93,10 +94,12 @@ class TestSetupLlamaIndexSettings:
     @patch("app.core.llm.LlamaIndexOpenAI")
     @patch("app.core.llm.OpenAIEmbedding")
     @patch("app.core.llm.SimpleNodeParser")
-    def test_setup_llamaindex_settings_with_api_key(
+    @patch.dict("os.environ", {"OPENAI_API_KEY": "env-key"})
+    def test_setup_llamaindex_settings_with_explicit_values(
         self, mock_parser, mock_embedding, mock_llm, mock_settings
     ):
-        """Test setting up LlamaIndex with explicit API key."""
+        """Test setting up LlamaIndex with explicit parameter values (env provides key)."""
+        reset_settings_cache()
         mock_llm_instance = Mock()
         mock_embedding_instance = Mock()
         mock_parser_instance = Mock()
@@ -110,19 +113,14 @@ class TestSetupLlamaIndexSettings:
             embedding_model="text-embedding-ada-002",
             chunk_size=512,
             chunk_overlap=50,
-            api_key="test-key",
         )
 
         # Verify LLM configuration
-        mock_llm.assert_called_once_with(
-            model="gpt-4", temperature=0, api_key="test-key"
-        )
+        mock_llm.assert_called_once_with(model="gpt-4", temperature=0)
         mock_settings.llm = mock_llm_instance
 
         # Verify embedding configuration
-        mock_embedding.assert_called_once_with(
-            model="text-embedding-ada-002", api_key="test-key"
-        )
+        mock_embedding.assert_called_once_with(model="text-embedding-ada-002")
         mock_settings.embed_model = mock_embedding_instance
 
         # Verify node parser configuration
@@ -140,6 +138,7 @@ class TestSetupLlamaIndexSettings:
         self, mock_parser, mock_embedding, mock_llm, mock_settings
     ):
         """Test setting up LlamaIndex with environment API key."""
+        reset_settings_cache()
         mock_llm_instance = Mock()
         mock_embedding_instance = Mock()
         mock_parser_instance = Mock()
@@ -151,15 +150,11 @@ class TestSetupLlamaIndexSettings:
         setup_llamaindex_settings()
 
         # Verify LLM configuration with default parameters
-        mock_llm.assert_called_once_with(
-            model="gpt-3.5-turbo", temperature=0, api_key="env-key"
-        )
+        mock_llm.assert_called_once_with(model="gpt-3.5-turbo", temperature=0)
         mock_settings.llm = mock_llm_instance
 
         # Verify embedding configuration with default parameters
-        mock_embedding.assert_called_once_with(
-            model="text-embedding-3-small", api_key="env-key"
-        )
+        mock_embedding.assert_called_once_with(model="text-embedding-3-small")
         mock_settings.embed_model = mock_embedding_instance
 
         # Verify node parser configuration with default parameters
@@ -171,6 +166,7 @@ class TestSetupLlamaIndexSettings:
     @patch.dict("os.environ", {}, clear=True)
     def test_setup_llamaindex_settings_missing_api_key_raises_error(self):
         """Test that missing API key raises ValueError."""
+        reset_settings_cache()
         with pytest.raises(
             ValueError, match="OPENAI_API_KEY environment variable is required"
         ):
@@ -259,6 +255,7 @@ class TestIntegration:
     @patch.dict("os.environ", {"OPENAI_API_KEY": "test-key"})
     def test_end_to_end_llm_creation(self, mock_chat_openai):
         """Test end-to-end LLM creation workflow."""
+        reset_settings_cache()
         mock_instance = Mock()
         mock_chat_openai.return_value = mock_instance
 
@@ -279,6 +276,7 @@ class TestIntegration:
         self, mock_parser, mock_embedding, mock_llm, mock_settings
     ):
         """Test end-to-end LlamaIndex setup workflow."""
+        reset_settings_cache()
         mock_llm_instance = Mock()
         mock_embedding_instance = Mock()
         mock_parser_instance = Mock()
@@ -302,6 +300,7 @@ class TestErrorHandling:
     @patch.dict("os.environ", {}, clear=True)
     def test_all_functions_require_api_key(self):
         """Test that all functions require API key when not provided."""
+        reset_settings_cache()
         with pytest.raises(
             ValueError, match="OPENAI_API_KEY environment variable is required"
         ):
@@ -328,17 +327,21 @@ class TestErrorHandling:
             setup_knowledge_agent_settings()
 
     @patch("app.core.llm.ChatOpenAI")
+    @patch.dict("os.environ", {"OPENAI_API_KEY": "test-key"})
     def test_chat_openai_creation_error_handling(self, mock_chat_openai):
         """Test error handling when ChatOpenAI creation fails."""
+        reset_settings_cache()
         mock_chat_openai.side_effect = Exception("OpenAI API error")
 
         with pytest.raises(Exception, match="OpenAI API error"):
-            get_chat_openai_llm(api_key="test-key")
+            get_chat_openai_llm()
 
     @patch("app.core.llm.LlamaIndexOpenAI")
+    @patch.dict("os.environ", {"OPENAI_API_KEY": "test-key"})
     def test_llamaindex_llm_creation_error_handling(self, mock_llm):
         """Test error handling when LlamaIndex LLM creation fails."""
+        reset_settings_cache()
         mock_llm.side_effect = Exception("LlamaIndex LLM error")
 
         with pytest.raises(Exception, match="LlamaIndex LLM error"):
-            setup_llamaindex_settings(api_key="test-key")
+            setup_llamaindex_settings()

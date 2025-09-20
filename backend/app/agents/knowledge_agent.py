@@ -23,6 +23,7 @@ from llama_index.vector_stores.chroma import ChromaVectorStore
 import chromadb
 
 from app.security.prompts import KNOWLEDGE_AGENT_SYSTEM_PROMPT
+from app.core.settings import get_settings
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -34,14 +35,13 @@ _index: Optional[VectorStoreIndex] = None
 _query_engine = None
 
 # Configuration
-VECTOR_STORE_PATH = Path("backend", "vector_store")
-BASE_URL = "https://ajuda.infinitepay.io/pt-BR/"
-COLLECTION_NAME = "infinitepay_docs"
+_settings = get_settings()
+VECTOR_STORE_PATH = _settings.VECTOR_STORE_PATH
+BASE_URL = _settings.BASE_URL
+COLLECTION_NAME = _settings.COLLECTION_NAME
 
 # Headers for web requests
-REQUEST_HEADERS = {
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
-}
+REQUEST_HEADERS = _settings.REQUEST_HEADERS
 
 
 def _setup_llm_and_embeddings():
