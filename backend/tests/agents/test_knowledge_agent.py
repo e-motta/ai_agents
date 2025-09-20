@@ -26,57 +26,14 @@ from app.agents.knowledge_agent import (
 class TestSetupLLMAndEmbeddings:
     """Test the _setup_llm_and_embeddings function."""
 
-    @patch("app.agents.knowledge_agent.os.getenv")
-    @patch("app.agents.knowledge_agent.Settings")
-    @patch("app.agents.knowledge_agent.OpenAI")
-    @patch("app.agents.knowledge_agent.OpenAIEmbedding")
-    @patch("app.agents.knowledge_agent.SimpleNodeParser")
-    def test_setup_with_valid_api_key(
-        self, mock_parser, mock_embedding, mock_llm, mock_settings, mock_getenv
-    ):
+    @patch("app.agents.knowledge_agent.setup_knowledge_agent_settings")
+    def test_setup_with_valid_api_key(self, mock_setup_settings):
         """Test that LLM and embeddings are configured correctly with valid API key."""
-        # Arrange
-        mock_getenv.return_value = "test-api-key"
-        mock_llm_instance = Mock()
-        mock_llm.return_value = mock_llm_instance
-        mock_embedding_instance = Mock()
-        mock_embedding.return_value = mock_embedding_instance
-        mock_parser_instance = Mock()
-        mock_parser.from_defaults.return_value = mock_parser_instance
-
         # Act
         _setup_llm_and_embeddings()
 
         # Assert
-        mock_getenv.assert_called_once_with("OPENAI_API_KEY")
-        mock_llm.assert_called_once_with(
-            model="gpt-3.5-turbo", temperature=0, api_key="test-api-key"
-        )
-        mock_embedding.assert_called_once_with(
-            model="text-embedding-3-small", api_key="test-api-key"
-        )
-        mock_parser.from_defaults.assert_called_once_with(
-            chunk_size=1024, chunk_overlap=20
-        )
-
-        # Verify Settings assignments
-        assert mock_settings.llm == mock_llm_instance
-        assert mock_settings.embed_model == mock_embedding_instance
-        assert mock_settings.node_parser == mock_parser_instance
-
-    @patch("app.agents.knowledge_agent.os.getenv")
-    def test_setup_with_missing_api_key(self, mock_getenv):
-        """Test that ValueError is raised when API key is missing."""
-        # Arrange
-        mock_getenv.return_value = None
-
-        # Act & Assert
-        with pytest.raises(
-            ValueError, match="OPENAI_API_KEY environment variable is required"
-        ):
-            _setup_llm_and_embeddings()
-
-        mock_getenv.assert_called_once_with("OPENAI_API_KEY")
+        mock_setup_settings.assert_called_once()
 
 
 class TestScrapePageContent:

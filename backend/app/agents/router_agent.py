@@ -7,7 +7,8 @@ based on the query content using an LLM classifier.
 
 import logging
 
-from openai import OpenAI
+from langchain_openai import ChatOpenAI
+from langchain.schema import HumanMessage, SystemMessage
 
 from app.security.prompts import ROUTER_SYSTEM_PROMPT
 from app.enums import ResponseEnum
@@ -112,13 +113,13 @@ def _detect_suspicious_content(query: str) -> bool:
     return False
 
 
-def route_query(query: str, client: OpenAI) -> str:
+def route_query(query: str, llm: ChatOpenAI) -> str:
     """
     Route a user query to the appropriate agent or return error status.
 
     Args:
         query: The user's query string
-        client: OpenAI client to use for routing
+        llm: ChatOpenAI LLM instance to use for routing
 
     Returns:
         str: Either "MathAgent", "KnowledgeAgent", "UnsupportedLanguage", or "Error"
@@ -142,18 +143,20 @@ def route_query(query: str, client: OpenAI) -> str:
     try:
         logger.info(f"Routing query: {cleaned_query[:100]}...")
 
-        response = client.chat.completions.create(
-            model="gpt-3.5-turbo",
-            messages=[
-                {"role": "system", "content": ROUTER_SYSTEM_PROMPT},
-                {"role": "user", "content": f'Query: "{cleaned_query}"'},
-            ],
-            temperature=0,
-            max_tokens=50,  # Limit response length since we only need agent name
-            timeout=30,
-        )
+        # Create messages
+        messages = [
+            SystemMessage(content=ROUTER_SYSTEM_PROMPT),
+            HumanMessage(content=f'Query: "{cleaned_query}"'),
+        ]
 
-        response_text = (response.choices[0].message.content or "").strip()
+        # Get response from LLM
+        response = llm.invoke(messages)
+
+        # Handle different response formats
+        if isinstance(response.content, list):
+            response_text = " ".join(str(item) for item in response.content).strip()
+        else:
+            response_text = response.content.strip()
 
         logger.info(f"Router response: {response_text}")
 
