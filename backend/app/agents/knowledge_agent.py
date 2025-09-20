@@ -3,7 +3,6 @@ Knowledge Agent module for querying InfinitePay documentation using LlamaIndex.
 Enhanced with comprehensive multi-level crawling.
 """
 
-import os
 import shutil
 import logging
 import time
@@ -17,11 +16,9 @@ from llama_index.core import (
     VectorStoreIndex,
     Document,
     StorageContext,
-    Settings,
 )
 from llama_index.core.node_parser import SimpleNodeParser
-from llama_index.llms.openai import OpenAI
-from llama_index.embeddings.openai import OpenAIEmbedding
+from app.core.llm import setup_knowledge_agent_settings
 from llama_index.vector_stores.chroma import ChromaVectorStore
 import chromadb
 
@@ -49,18 +46,7 @@ REQUEST_HEADERS = {
 
 def _setup_llm_and_embeddings():
     """Setup LLM and embeddings with OpenAI."""
-    api_key = os.getenv("OPENAI_API_KEY")
-    if not api_key:
-        raise ValueError("OPENAI_API_KEY environment variable is required")
-
-    # Configure LlamaIndex settings
-    Settings.llm = OpenAI(model="gpt-3.5-turbo", temperature=0, api_key=api_key)
-    Settings.embed_model = OpenAIEmbedding(
-        model="text-embedding-3-small", api_key=api_key
-    )
-    Settings.node_parser = SimpleNodeParser.from_defaults(
-        chunk_size=1024, chunk_overlap=20
-    )
+    setup_knowledge_agent_settings()
 
 
 def _scrape_page_content(url: str) -> Dict[str, Any]:
@@ -126,9 +112,9 @@ def _find_collection_links(base_url: str) -> Set[str]:
         links = soup.find_all("a", href=True)
 
         for link in links:
-            href = link["href"]
+            href = link["href"]  # type: ignore
             # Convert relative URLs to absolute
-            absolute_url = urljoin(base_url, href)
+            absolute_url = urljoin(base_url, href)  # type: ignore
 
             # Check if this is a collection link
             if "/collections/" in absolute_url:
@@ -167,9 +153,9 @@ def _find_article_links(collection_url: str) -> Set[str]:
         links = soup.find_all("a", href=True)
 
         for link in links:
-            href = link["href"]
+            href = link["href"]  # type: ignore
             # Convert relative URLs to absolute
-            absolute_url = urljoin(collection_url, href)
+            absolute_url = urljoin(collection_url, href)  # type: ignore
 
             # Check if this is an article link
             if "/articles/" in absolute_url:
@@ -466,7 +452,7 @@ def get_index_stats() -> dict:
         # Try to get more detailed stats if possible
         try:
             if hasattr(local_index, "docstore") and local_index.docstore:
-                stats["document_count"] = len(local_index.docstore.docs)
+                stats["document_count"] = len(local_index.docstore.docs)  # type: ignore
         except:
             pass
 
