@@ -19,12 +19,13 @@ from llama_index.core import (
     StorageContext,
 )
 from llama_index.core.node_parser import SimpleNodeParser
-from app.core.llm import setup_knowledge_agent_settings
+
 from llama_index.vector_stores.chroma import ChromaVectorStore
 import chromadb
 
 from app.security.prompts import KNOWLEDGE_AGENT_SYSTEM_PROMPT
 from app.core.settings import get_settings
+from app.core.llm import setup_knowledge_agent_settings
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -341,18 +342,6 @@ def initialize_knowledge_agent():
             _create_vector_store()
 
         logger.info("Knowledge agent initialized successfully!")
-
-
-@lru_cache(maxsize=1)
-def get_knowledge_agent() -> bool:
-    """
-    Dependency: ensure the knowledge agent is initialized once and cached.
-
-    Returns True if initialized. The boolean return is a lightweight sentinel
-    that can be injected to guarantee initialization side-effect.
-    """
-    initialize_knowledge_agent()
-    return True
 
 
 def _extract_sources_from_response(response) -> List[str]:

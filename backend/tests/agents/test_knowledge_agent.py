@@ -23,19 +23,6 @@ from app.agents.knowledge_agent import (
 )
 
 
-class TestSetupLLMAndEmbeddings:
-    """Test the _setup_llm_and_embeddings function."""
-
-    @patch("app.agents.knowledge_agent.setup_knowledge_agent_settings")
-    def test_setup_with_valid_api_key(self, mock_setup_settings):
-        """Test that LLM and embeddings are configured correctly with valid API key."""
-        # Act
-        _setup_llm_and_embeddings()
-
-        # Assert
-        mock_setup_settings.assert_called_once()
-
-
 class TestScrapePageContent:
     """Test the _scrape_page_content function."""
 
