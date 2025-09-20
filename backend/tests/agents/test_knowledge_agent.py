@@ -805,7 +805,7 @@ class TestIntegration:
 
     def test_constants_are_defined(self):
         """Test that all required constants are properly defined."""
-        assert VECTOR_STORE_PATH == Path("backend", "vector_store")
+        assert VECTOR_STORE_PATH == Path(__file__).parent.parent.parent / "vector_store"
         assert BASE_URL == "https://ajuda.infinitepay.io/pt-BR/"
         assert COLLECTION_NAME == "infinitepay_docs"
         assert isinstance(REQUEST_HEADERS, dict)

@@ -16,7 +16,9 @@ class Settings(BaseSettings):
     validated via helper methods when needed.
     """
 
-    model_config = SettingsConfigDict(env_prefix="", case_sensitive=True, extra="ignore")
+    model_config = SettingsConfigDict(
+        env_prefix="", case_sensitive=True, extra="ignore"
+    )
 
     # Secrets / API keys
     OPENAI_API_KEY: Optional[SecretStr] = None
@@ -28,7 +30,7 @@ class Settings(BaseSettings):
     CHUNK_OVERLAP: int = 20
 
     # Knowledge agent configuration
-    VECTOR_STORE_PATH: Path = Path("backend", "vector_store")
+    VECTOR_STORE_PATH: Path = Path(__file__).parent.parent.parent / "vector_store"
     BASE_URL: str = "https://ajuda.infinitepay.io/pt-BR/"
     COLLECTION_NAME: str = "infinitepay_docs"
 
@@ -49,7 +51,10 @@ class Settings(BaseSettings):
 
         We intentionally keep the error message compatible with prior code/tests.
         """
-        if self.OPENAI_API_KEY is None or self.OPENAI_API_KEY.get_secret_value().strip() == "":
+        if (
+            self.OPENAI_API_KEY is None
+            or self.OPENAI_API_KEY.get_secret_value().strip() == ""
+        ):
             raise ValueError("OPENAI_API_KEY environment variable is required")
         return self.OPENAI_API_KEY.get_secret_value()
 
