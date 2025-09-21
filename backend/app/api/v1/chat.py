@@ -74,7 +74,7 @@ async def chat(
     payload: ChatRequest,
     router_llm=Depends(get_router_llm),
     math_llm=Depends(get_math_llm),
-    knowledge_engine: bool = Depends(get_knowledge_engine),
+    knowledge_engine: BaseQueryEngine = Depends(get_knowledge_engine),
 ) -> ChatResponse:
     if not payload.message or not payload.message.strip():
         raise HTTPException(status_code=422, detail="'message' cannot be empty")
