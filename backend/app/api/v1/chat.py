@@ -14,6 +14,7 @@ from app.enums import ResponseEnum
 from app.models import ChatRequest, ChatResponse, WorkflowStep
 from app.core.logging import get_logger, log_system_event
 from app.core.decorators import log_and_handle_agent_errors
+from app.services.redis_service import add_message_to_history, get_history
 
 router = APIRouter()
 logger = get_logger(__name__)
@@ -74,6 +75,36 @@ HANDLER_BY_DECISION: dict[
     ResponseEnum.UnsupportedLanguage: _process_unsupported_language,
     ResponseEnum.Error: _process_error,
 }
+
+
+def _save_conversation_to_redis(
+    conversation_id: str, user_id: str, message: str, agent_response: str
+):
+    try:
+        redis_success = add_message_to_history(
+            conversation_id=conversation_id,
+            user_message=message,
+            agent_response=agent_response,
+        )
+        if redis_success:
+            logger.info(
+                "Conversation saved to Redis",
+                conversation_id=conversation_id,
+                user_id=user_id,
+            )
+        else:
+            logger.warning(
+                "Failed to save conversation to Redis",
+                conversation_id=conversation_id,
+                user_id=user_id,
+            )
+    except Exception as e:
+        logger.error(
+            "Error saving conversation to Redis",
+            conversation_id=conversation_id,
+            user_id=user_id,
+            error=str(e),
+        )
 
 
 @router.post("/chat", response_model=ChatResponse)
@@ -139,6 +170,10 @@ async def chat(
         response_preview=final_response[:100],
     )
 
+    _save_conversation_to_redis(
+        payload.conversation_id, payload.user_id, payload.message, final_response
+    )
+
     return ChatResponse(
         user_id=payload.user_id,
         conversation_id=payload.conversation_id,
@@ -146,3 +181,45 @@ async def chat(
         response=final_response,
         agent_workflow=agent_workflow,
     )
+
+
+@router.get("/chat/history/{conversation_id}")
+async def get_conversation_history(conversation_id: str) -> dict:
+    """
+    Retrieve conversation history for a given conversation ID.
+
+    Args:
+        conversation_id: The unique identifier for the conversation
+
+    Returns:
+        dict: Contains the conversation history or error information
+    """
+    logger.info(
+        "Conversation history requested",
+        conversation_id=conversation_id,
+    )
+
+    try:
+        history = get_history(conversation_id)
+
+        logger.info(
+            "Conversation history retrieved",
+            conversation_id=conversation_id,
+            message_count=len(history),
+        )
+
+        return {
+            "conversation_id": conversation_id,
+            "message_count": len(history),
+            "history": history,
+        }
+
+    except Exception as e:
+        logger.error(
+            "Error retrieving conversation history",
+            conversation_id=conversation_id,
+            error=str(e),
+        )
+        raise HTTPException(
+            status_code=500, detail=f"Failed to retrieve conversation history: {str(e)}"
+        )

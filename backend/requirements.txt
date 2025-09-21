@@ -18,3 +18,4 @@ openai
 pydantic>=2.7.0
 pydantic-settings>=2.2.0
 structlog>=24.1.0
+redis==6.4.0
