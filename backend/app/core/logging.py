@@ -8,23 +8,23 @@ with all required fields for the agent system.
 import logging
 import sys
 from datetime import datetime, timezone
-from typing import Any, Dict, Optional
+from typing import Any
 
 import structlog
 from structlog.stdlib import LoggerFactory
 
 
 def add_timestamp(
-    logger: Any, method_name: str, event_dict: Dict[str, Any]
-) -> Dict[str, Any]:
+    logger: Any, method_name: str, event_dict: dict[str, Any]
+) -> dict[str, Any]:
     """Add ISO 8601 timestamp to log events."""
     event_dict["timestamp"] = datetime.now(timezone.utc).isoformat()
     return event_dict
 
 
 def add_agent_context(
-    logger: Any, method_name: str, event_dict: Dict[str, Any]
-) -> Dict[str, Any]:
+    logger: Any, method_name: str, event_dict: dict[str, Any]
+) -> dict[str, Any]:
     """Add agent context to log events."""
     # Extract agent name from logger name if available
     logger_name = logger.name if hasattr(logger, "name") else ""
@@ -96,7 +96,7 @@ def log_agent_decision(
     conversation_id: str,
     user_id: str,
     decision: str,
-    execution_time: Optional[float] = None,
+    execution_time: float | None = None,
     **kwargs,
 ) -> None:
     """
@@ -128,7 +128,7 @@ def log_agent_processing(
     conversation_id: str,
     user_id: str,
     processed_content: str,
-    execution_time: Optional[float] = None,
+    execution_time: float | None = None,
     **kwargs,
 ) -> None:
     """
@@ -158,9 +158,9 @@ def log_agent_processing(
 def log_system_event(
     logger: structlog.stdlib.BoundLogger,
     event: str,
-    conversation_id: Optional[str] = None,
-    user_id: Optional[str] = None,
-    execution_time: Optional[float] = None,
+    conversation_id: str | None = None,
+    user_id: str | None = None,
+    execution_time: float | None = None,
     **kwargs,
 ) -> None:
     """

@@ -6,7 +6,6 @@ based on the query content using an LLM classifier.
 """
 
 import time
-from typing import Optional
 
 from langchain_openai import ChatOpenAI
 from langchain.schema import HumanMessage, SystemMessage
@@ -121,8 +120,8 @@ def _detect_suspicious_content(query: str) -> bool:
 async def route_query(
     query: str,
     llm: ChatOpenAI,
-    conversation_id: Optional[str] = None,
-    user_id: Optional[str] = None,
+    conversation_id: str | None = None,
+    user_id: str | None = None,
 ) -> str:
     """
     Route a user query to the appropriate agent or return error status.

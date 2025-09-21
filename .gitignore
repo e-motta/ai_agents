@@ -23,6 +23,7 @@ __pycache__/
 *.egg-info/
 *.eggs/
 .coverage
+coverage.xml
 .venv/
 backend/.pytest_cache/
 backend/.mypy_cache/

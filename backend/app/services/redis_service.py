@@ -6,9 +6,8 @@ using Redis as the storage backend.
 """
 
 import json
-import logging
-from typing import List, Dict, Any, Optional
-from datetime import datetime
+from typing import Any
+from datetime import datetime, UTC
 
 import redis
 from redis.exceptions import RedisError
@@ -44,7 +43,7 @@ class RedisService:
                 decode_responses=True,
                 socket_connect_timeout=settings.REDIS_SOCKET_CONNECT_TIMEOUT,
                 socket_timeout=settings.REDIS_SOCKET_TIMEOUT,
-                retry_on_timeout=settings.REDIS_RETRY_ON_TIMEOUT,
+                retry_on_error=[TimeoutError, ConnectionError],
             )
             # Test connection
             self.redis_client.ping()
@@ -72,7 +71,7 @@ class RedisService:
         try:
             # Create message entry
             message_entry = {
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(UTC).isoformat(),
                 "user_message": user_message,
                 "agent_response": agent_response,
             }
@@ -97,7 +96,7 @@ class RedisService:
             logger.error(f"Unexpected error adding message to history: {e}")
             return False
 
-    def get_history(self, conversation_id: str) -> List[Dict[str, Any]]:
+    def get_history(self, conversation_id: str) -> list[dict[str, Any]]:
         """
         Retrieve conversation history.
 
@@ -105,7 +104,7 @@ class RedisService:
             conversation_id: Unique identifier for the conversation
 
         Returns:
-            List[Dict[str, Any]]: List of message exchanges in chronological order
+            list[dict[str, Any]]: List of message exchanges in chronological order
         """
         try:
             key = f"conversation:{conversation_id}"
@@ -176,7 +175,7 @@ class RedisService:
 redis_service = None
 
 
-def _get_redis_service() -> Optional[RedisService]:
+def _get_redis_service() -> RedisService | None:
     """Get Redis service instance with lazy initialization."""
     global redis_service
     if redis_service is None:
@@ -210,7 +209,7 @@ def add_message_to_history(
     return service.add_message_to_history(conversation_id, user_message, agent_response)
 
 
-def get_history(conversation_id: str) -> List[Dict[str, Any]]:
+def get_history(conversation_id: str) -> list[dict[str, Any]]:
     """
     Retrieve conversation history.
 
@@ -218,7 +217,7 @@ def get_history(conversation_id: str) -> List[Dict[str, Any]]:
         conversation_id: Unique identifier for the conversation
 
     Returns:
-        List[Dict[str, Any]]: List of message exchanges in chronological order
+        list[dict[str, Any]]: list of message exchanges in chronological order
     """
     service = _get_redis_service()
     if service is None:
