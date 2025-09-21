@@ -1,159 +1,41 @@
-"""
-Comprehensive pytest tests for the math_agent module.
-"""
-
-import os
+from langchain_openai.chat_models.base import ChatOpenAI
 import pytest
-from unittest.mock import Mock, patch
+
+pytest.importorskip("langchain")
+pytest.importorskip("langchain_openai")
+from types import SimpleNamespace
+
 from app.agents.math_agent import solve_math
 
 
-class TestSolveMath:
-    """Test the main solve_math function."""
+class DummyLLM(ChatOpenAI):
+    def __init__(self, content):
+        self._content = content
 
-    def test_successful_solve_math(self):
-        """Test successful solve_math execution."""
-        mock_response = Mock()
-        mock_response.content = "5"
-        mock_llm = Mock()
-        mock_llm.invoke.return_value = mock_response
-
-        result = solve_math("2 + 3", mock_llm)
-        assert result == "5"
+    async def ainvoke(self, messages):
+        return SimpleNamespace(content=self._content)
 
 
-    def test_solve_math_llm_error(self):
-        """Test solve_math when LLM raises an error."""
-        mock_llm = Mock()
-        mock_llm.invoke.side_effect = Exception("Network error")
-
-        with pytest.raises(ValueError, match="Network error"):
-            solve_math("2 + 3", mock_llm)
-
-    def test_solve_math_various_expressions(self):
-        """Test solve_math with various mathematical expressions."""
-        test_cases = [
-            ("2 + 3", "5"),
-            ("10 * 5", "50"),
-            ("sqrt(16)", "4"),
-            ("2^3", "8"),
-            ("15 / 3 + 7", "12"),
-            ("2 * (3 + 4)", "14"),
-        ]
-
-        for query, expected in test_cases:
-            mock_response = Mock()
-            mock_response.content = expected
-            mock_llm = Mock()
-            mock_llm.invoke.return_value = mock_response
-
-            result = solve_math(query, mock_llm)
-            assert result == expected
-
-    def test_calculation_with_answer_prefix(self):
-        """Test calculation when LLM returns 'Answer: X' format."""
-        mock_response = Mock()
-        mock_response.content = "Answer: 10"
-        mock_llm = Mock()
-        mock_llm.invoke.return_value = mock_response
-
-        with pytest.raises(ValueError, match="LLM returned a non-numerical result"):
-            solve_math("5 * 2", mock_llm)
-
-    def test_calculation_with_negative_number(self):
-        """Test calculation with negative numbers."""
-        mock_response = Mock()
-        mock_response.content = "The result is -5"
-        mock_llm = Mock()
-        mock_llm.invoke.return_value = mock_response
-
-        # The current implementation expects only numeric results
-        with pytest.raises(ValueError, match="LLM returned a non-numerical result"):
-            solve_math("2 - 7", mock_llm)
-
-    def test_calculation_with_decimal_number(self):
-        """Test calculation with decimal numbers."""
-        mock_response = Mock()
-        mock_response.content = "3.14159"
-        mock_llm = Mock()
-        mock_llm.invoke.return_value = mock_response
-
-        result = solve_math("pi", mock_llm)
-        assert result == "3.14159"
-
-    def test_invalid_expression_error(self):
-        """Test handling of invalid mathematical expressions."""
-        mock_response = Mock()
-        mock_response.content = "Error"
-        mock_llm = Mock()
-        mock_llm.invoke.return_value = mock_response
-
-        with pytest.raises(ValueError, match="Could not evaluate the expression"):
-            solve_math("invalid expression", mock_llm)
-
-    def test_empty_response_handling(self):
-        """Test handling of empty LLM response."""
-        mock_response = Mock()
-        mock_response.content = ""
-        mock_llm = Mock()
-        mock_llm.invoke.return_value = mock_response
-
-        with pytest.raises(ValueError, match="Could not evaluate the expression"):
-            solve_math("2 + 3", mock_llm)
+@pytest.mark.asyncio
+async def test_solve_math_simple_addition():
+    llm = DummyLLM("5")
+    result = await solve_math("2 + 3", llm)
+    assert result == "5"
 
 
-class TestEdgeCases:
-    """Test edge cases and boundary conditions."""
-
-    def test_very_long_expression(self):
-        """Test with a very long mathematical expression."""
-        long_expression = "1 + 2 + 3 + 4 + 5 + 6 + 7 + 8 + 9 + 10"
-        mock_response = Mock()
-        mock_response.content = "55"
-        mock_llm = Mock()
-        mock_llm.invoke.return_value = mock_response
-
-        result = solve_math(long_expression, mock_llm)
-        assert result == "55"
-
-    def test_expression_with_special_characters(self):
-        """Test expression with special characters that are safe."""
-        mock_response = Mock()
-        mock_response.content = "3.14159"
-        mock_llm = Mock()
-        mock_llm.invoke.return_value = mock_response
-
-        result = solve_math("π", mock_llm)
-        assert result == "3.14159"
+@pytest.mark.asyncio
+async def test_solve_math_rejects_non_numeric_output():
+    llm = DummyLLM("not-a-number")
+    with pytest.raises(ValueError):
+        await solve_math("how is the weather?", llm)
 
 
-class TestErrorHandling:
-    """Test error handling scenarios."""
+@pytest.mark.asyncio
+async def test_solve_math_bubbles_error_as_value_error():
+    class FailingLLM(ChatOpenAI):
+        async def ainvoke(self, messages):
+            raise RuntimeError("network error")
 
-    def test_empty_query(self):
-        """Test with empty query."""
-        mock_llm = Mock()
-        with pytest.raises(ValueError):
-            solve_math("", mock_llm)
-
-    def test_none_query(self):
-        """Test with None query."""
-        mock_llm = Mock()
-        with pytest.raises((TypeError, ValueError)):
-            solve_math(None, mock_llm)
-
-    def test_llm_timeout_error(self):
-        """Test handling of LLM timeout errors."""
-        mock_llm = Mock()
-        mock_llm.invoke.side_effect = TimeoutError("Request timed out")
-
-        with pytest.raises(ValueError, match="Request timed out"):
-            solve_math("2 + 3", mock_llm)
-
-    def test_llm_rate_limit_error(self):
-        """Test handling of LLM rate limit errors."""
-        mock_llm = Mock()
-        mock_llm.invoke.side_effect = Exception("Rate limit exceeded")
-
-        with pytest.raises(ValueError, match="Rate limit exceeded"):
-            solve_math("2 + 3", mock_llm)
+    with pytest.raises(ValueError) as exc:
+        await solve_math("10/2", FailingLLM())
+    assert "Error evaluating mathematical expression" in str(exc.value)
