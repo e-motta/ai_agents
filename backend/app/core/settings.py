@@ -40,6 +40,16 @@ class Settings(BaseSettings):
         "Chrome/91.0.4472.124 Safari/537.36"
     )
 
+    # Redis configuration
+    REDIS_HOST: str = "localhost"
+    REDIS_PORT: int = 6379
+    REDIS_DB: int = 0
+    REDIS_PASSWORD: SecretStr | None = None
+    REDIS_SOCKET_CONNECT_TIMEOUT: int = 5
+    REDIS_SOCKET_TIMEOUT: int = 5
+    REDIS_RETRY_ON_TIMEOUT: bool = True
+    REDIS_CONVERSATION_TTL: int = 30 * 24 * 60 * 60  # 30 days in seconds
+
     @property
     def REQUEST_HEADERS(self) -> dict[str, str]:
         return {"User-Agent": self.REQUEST_HEADERS_USER_AGENT}
@@ -56,6 +66,12 @@ class Settings(BaseSettings):
         ):
             raise ValueError("OPENAI_API_KEY environment variable is required")
         return self.OPENAI_API_KEY.get_secret_value()
+
+    def get_redis_password(self) -> str | None:
+        """Return the Redis password or None if not set."""
+        if self.REDIS_PASSWORD is None:
+            return None
+        return self.REDIS_PASSWORD.get_secret_value()
 
 
 @lru_cache(maxsize=1)

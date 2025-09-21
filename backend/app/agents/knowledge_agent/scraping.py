@@ -1,4 +1,4 @@
-import logging
+import time
 from typing import Any
 from urllib.parse import urljoin
 import requests
@@ -6,10 +6,9 @@ from bs4 import BeautifulSoup
 from llama_index.core import Document
 
 from app.core.settings import get_settings
+from app.core.logging import get_logger
 
-# Configure logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 _settings = get_settings()
 BASE_URL = _settings.BASE_URL
@@ -27,7 +26,7 @@ def _scrape_page_content(url: str) -> dict[str, Any]:
         Dictionary containing text content and metadata
     """
     try:
-        logger.info(f"Scraping content from {url}")
+        logger.info("Scraping content from URL", url=url)
 
         response = requests.get(url, headers=REQUEST_HEADERS, timeout=30)
         response.raise_for_status()
@@ -46,12 +45,14 @@ def _scrape_page_content(url: str) -> dict[str, Any]:
         chunks = (phrase.strip() for line in lines for phrase in line.split("  "))
         cleaned_text = " ".join(chunk for chunk in chunks if chunk)
 
-        logger.info(f"Successfully scraped {len(cleaned_text)} characters from {url}")
+        logger.info(
+            "Successfully scraped content", url=url, content_length=len(cleaned_text)
+        )
 
         return {"content": cleaned_text, "url": url}
 
     except Exception as e:
-        logger.error(f"Error scraping {url}: {str(e)}")
+        logger.error("Error scraping URL", url=url, error=str(e))
         raise
 
 
@@ -68,7 +69,7 @@ def _find_collection_links(base_url: str) -> set[str]:
     collection_links = set()
 
     try:
-        logger.info(f"Finding collection links from {base_url}")
+        logger.info("Finding collection links", base_url=base_url)
 
         response = requests.get(base_url, headers=REQUEST_HEADERS, timeout=30)
         response.raise_for_status()
@@ -86,13 +87,17 @@ def _find_collection_links(base_url: str) -> set[str]:
             # Check if this is a collection link
             if "/collections/" in absolute_url:
                 collection_links.add(absolute_url)
-                logger.info(f"Found collection link: {absolute_url}")
+                logger.info("Found collection link", url=absolute_url)
 
-        logger.info(f"Found {len(collection_links)} collection links")
+        logger.info(
+            "Collection links search completed",
+            base_url=base_url,
+            links_found=len(collection_links),
+        )
         return collection_links
 
     except Exception as e:
-        logger.error(f"Error finding collection links: {str(e)}")
+        logger.error("Error finding collection links", base_url=base_url, error=str(e))
         return set()
 
 
@@ -109,7 +114,7 @@ def _find_article_links(collection_url: str) -> set[str]:
     article_links = set()
 
     try:
-        logger.info(f"Finding article links from {collection_url}")
+        logger.info("Finding article links", collection_url=collection_url)
 
         response = requests.get(collection_url, headers=REQUEST_HEADERS, timeout=30)
         response.raise_for_status()
@@ -127,13 +132,19 @@ def _find_article_links(collection_url: str) -> set[str]:
             # Check if this is an article link
             if "/articles/" in absolute_url:
                 article_links.add(absolute_url)
-                logger.info(f"Found article link: {absolute_url}")
+                logger.info("Found article link", url=absolute_url)
 
-        logger.info(f"Found {len(article_links)} article links from {collection_url}")
+        logger.info(
+            "Article links search completed",
+            collection_url=collection_url,
+            links_found=len(article_links),
+        )
         return article_links
 
     except Exception as e:
-        logger.error(f"Error finding article links from {collection_url}: {str(e)}")
+        logger.error(
+            "Error finding article links", collection_url=collection_url, error=str(e)
+        )
         return set()
 
 
@@ -148,6 +159,7 @@ def crawl_help_center() -> list[Document]:
     visited_urls = set()
 
     try:
+        start_time = time.time()
         logger.info("Starting comprehensive crawl of InfinitePay help center")
 
         # Step 1: Find all collection links
@@ -159,7 +171,9 @@ def crawl_help_center() -> list[Document]:
             article_links = _find_article_links(collection_url)
             all_article_links.update(article_links)
 
-        logger.info(f"Total unique article links found: {len(all_article_links)}")
+        logger.info(
+            "Total unique article links found", total_links=len(all_article_links)
+        )
 
         # Step 3: Process each article
         for i, article_url in enumerate(all_article_links, 1):
@@ -170,7 +184,10 @@ def crawl_help_center() -> list[Document]:
 
             try:
                 logger.info(
-                    f"Processing article {i}/{len(all_article_links)}: {article_url}"
+                    "Processing article",
+                    current=i,
+                    total=len(all_article_links),
+                    url=article_url,
                 )
 
                 # Scrape the article content
@@ -186,17 +203,22 @@ def crawl_help_center() -> list[Document]:
                         },
                     )
                     documents.append(doc)
-                    logger.info(f"Created document for {article_url}")
+                    logger.info("Created document", url=article_url)
                 else:
-                    logger.warning(f"No content found for {article_url}")
+                    logger.warning("No content found", url=article_url)
 
             except Exception as e:
-                logger.error(f"Error processing article {article_url}: {str(e)}")
+                logger.error("Error processing article", url=article_url, error=str(e))
                 continue
 
-        logger.info(f"Crawling completed. Created {len(documents)} documents")
+        execution_time = time.time() - start_time
+        logger.info(
+            "Crawling completed",
+            documents_created=len(documents),
+            execution_time=execution_time,
+        )
         return documents
 
     except Exception as e:
-        logger.error(f"Error during crawling: {str(e)}")
+        logger.error("Error during crawling", error=str(e))
         raise
