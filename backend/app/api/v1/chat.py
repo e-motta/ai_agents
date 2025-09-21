@@ -19,7 +19,7 @@ from app.enums import ResponseEnum
 from app.models import ChatRequest, ChatResponse, WorkflowStep
 from app.core.logging import get_logger, log_system_event
 from app.core.decorators import log_and_handle_agent_errors
-from app.services.redis_service import add_message_to_history, get_history
+from app.services.redis_service import add_message_to_history, get_history, get_user_conversations
 
 router = APIRouter()
 logger = get_logger(__name__)
@@ -87,6 +87,7 @@ def _save_conversation_to_redis(
 ):
     try:
         redis_success = add_message_to_history(
+            user_id=user_id,
             conversation_id=conversation_id,
             user_message=message,
             agent_response=agent_response,
@@ -229,4 +230,46 @@ async def get_conversation_history(conversation_id: str) -> dict:
         )
         raise HTTPException(
             status_code=500, detail=f"Failed to retrieve conversation history: {str(e)}"
+        )
+
+
+@router.get("/chat/user/{user_id}/conversations")
+async def get_user_conversations_endpoint(user_id: str) -> dict:
+    """
+    Retrieve all conversation IDs for a specific user.
+
+    Args:
+        user_id: The unique identifier for the user
+
+    Returns:
+        dict: Contains the list of conversation IDs or error information
+    """
+    logger.info(
+        "User conversations requested",
+        user_id=user_id,
+    )
+
+    try:
+        conversation_ids = get_user_conversations(user_id)
+
+        logger.info(
+            "User conversations retrieved",
+            user_id=user_id,
+            conversation_count=len(conversation_ids),
+        )
+
+        return {
+            "user_id": user_id,
+            "conversation_count": len(conversation_ids),
+            "conversation_ids": conversation_ids,
+        }
+
+    except Exception as e:
+        logger.error(
+            "Error retrieving user conversations",
+            user_id=user_id,
+            error=str(e),
+        )
+        raise HTTPException(
+            status_code=500, detail=f"Failed to retrieve user conversations: {str(e)}"
         )

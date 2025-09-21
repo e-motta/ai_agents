@@ -55,7 +55,7 @@ class RedisService:
             raise
 
     def add_message_to_history(
-        self, conversation_id: str, user_message: str, agent_response: str
+        self, conversation_id: str, user_message: str, agent_response: str, user_id: str
     ) -> bool:
         """
         Add a message exchange to conversation history.
@@ -64,6 +64,7 @@ class RedisService:
             conversation_id: Unique identifier for the conversation
             user_message: The user's message
             agent_response: The agent's response
+            user_id: The user's identifier
 
         Returns:
             bool: True if successful, False otherwise
@@ -72,6 +73,7 @@ class RedisService:
             # Create message entry
             message_entry = {
                 "timestamp": datetime.now(UTC).isoformat(),
+                "user_id": user_id,
                 "user_message": user_message,
                 "agent_response": agent_response,
             }
@@ -85,6 +87,16 @@ class RedisService:
 
             # Set expiration for the conversation using settings TTL
             self.redis_client.expire(key, self.settings.REDIS_CONVERSATION_TTL)
+
+            # Maintain user-conversation mapping
+            # Key format: "user_conversations:{user_id}"
+            user_key = f"user_conversations:{user_id}"
+
+            # Add conversation_id to user's conversation set if not already present
+            self.redis_client.sadd(user_key, conversation_id)
+
+            # Set expiration for the user conversations mapping using settings TTL
+            self.redis_client.expire(user_key, self.settings.REDIS_CONVERSATION_TTL)
 
             logger.info(f"Added message to conversation {conversation_id}")
             return True
@@ -170,6 +182,35 @@ class RedisService:
             logger.error(f"Failed to get conversation count: {e}")
             return 0
 
+    def get_user_conversations(self, user_id: str) -> list[str]:
+        """
+        Get all conversation IDs for a specific user.
+
+        Args:
+            user_id: Unique identifier for the user
+
+        Returns:
+            list[str]: List of conversation IDs belonging to the user
+        """
+        try:
+            user_key = f"user_conversations:{user_id}"
+
+            # Get all conversation IDs from the set
+            conversation_ids = self.redis_client.smembers(user_key)
+
+            # Convert to list and sort for consistent ordering
+            result = sorted(list(conversation_ids))
+
+            logger.info(f"Retrieved {len(result)} conversations for user {user_id}")
+            return result
+
+        except RedisError as e:
+            logger.error(f"Failed to get user conversations: {e}")
+            return []
+        except Exception as e:
+            logger.error(f"Unexpected error getting user conversations: {e}")
+            return []
+
 
 # Global Redis service instance (lazy initialization)
 redis_service = None
@@ -189,7 +230,7 @@ def _get_redis_service() -> RedisService | None:
 
 # Convenience functions for direct use
 def add_message_to_history(
-    conversation_id: str, user_message: str, agent_response: str
+    user_id: str, conversation_id: str, user_message: str, agent_response: str
 ) -> bool:
     """
     Add a message exchange to conversation history.
@@ -198,6 +239,7 @@ def add_message_to_history(
         conversation_id: Unique identifier for the conversation
         user_message: The user's message
         agent_response: The agent's response
+        user_id: The user's identifier
 
     Returns:
         bool: True if successful, False otherwise
@@ -206,7 +248,9 @@ def add_message_to_history(
     if service is None:
         logger.warning("Redis service unavailable, message not stored")
         return False
-    return service.add_message_to_history(conversation_id, user_message, agent_response)
+    return service.add_message_to_history(
+        conversation_id, user_message, agent_response, user_id
+    )
 
 
 def get_history(conversation_id: str) -> list[dict[str, Any]]:
@@ -224,3 +268,20 @@ def get_history(conversation_id: str) -> list[dict[str, Any]]:
         logger.warning("Redis service unavailable, returning empty history")
         return []
     return service.get_history(conversation_id)
+
+
+def get_user_conversations(user_id: str) -> list[str]:
+    """
+    Get all conversation IDs for a specific user.
+
+    Args:
+        user_id: Unique identifier for the user
+
+    Returns:
+        list[str]: List of conversation IDs belonging to the user
+    """
+    service = _get_redis_service()
+    if service is None:
+        logger.warning("Redis service unavailable, returning empty conversation list")
+        return []
+    return service.get_user_conversations(user_id)
