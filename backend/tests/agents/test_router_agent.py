@@ -195,6 +195,7 @@ class TestRouteQuery:
 
         result = await route_query("2 + 2", mock_llm)
         assert result == ResponseEnum.MathAgent
+        mock_llm.ainvoke.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_route_query_with_conversation_context(self, mock_llm):
