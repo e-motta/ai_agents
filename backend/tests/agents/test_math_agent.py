@@ -223,6 +223,7 @@ class TestSolveMath:
 
         result = await solve_math("2 + 2", mock_llm)
         assert result == "4"
+        mock_llm.ainvoke.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_solve_float_result(self, mock_llm):
