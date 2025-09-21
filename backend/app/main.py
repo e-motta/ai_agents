@@ -1,10 +1,23 @@
+from contextlib import asynccontextmanager
 from fastapi import FastAPI
-from app.api.v1.hello import router as hello_router
+from app.api.v1.chat import router as chat_router
+from app.dependencies import (
+    get_knowledge_engine,
+    get_math_llm,
+    get_router_llm,
+)
 
-app = FastAPI()
 
-app.include_router(hello_router)
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Warm up expensive resources once on startup."""
+    # Initialize cached LLMs
+    get_math_llm()
+    get_router_llm()
+    get_knowledge_engine()
+    yield
 
-@app.get("/")
-def read_root():
-    return {"message": "Welcome to the FastAPI application!"}
+
+app = FastAPI(lifespan=lifespan)
+
+app.include_router(chat_router, prefix="/api/v1")

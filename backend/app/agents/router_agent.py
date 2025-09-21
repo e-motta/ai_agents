@@ -113,7 +113,7 @@ def _detect_suspicious_content(query: str) -> bool:
     return False
 
 
-def route_query(query: str, llm: ChatOpenAI) -> str:
+async def route_query(query: str, llm: ChatOpenAI) -> str:
     """
     Route a user query to the appropriate agent or return error status.
 
@@ -149,8 +149,8 @@ def route_query(query: str, llm: ChatOpenAI) -> str:
             HumanMessage(content=f'Query: "{cleaned_query}"'),
         ]
 
-        # Get response from LLM
-        response = llm.invoke(messages)
+        # Get response from LLM asynchronously
+        response = await llm.ainvoke(messages)
 
         # Handle different response formats
         if isinstance(response.content, list):

@@ -8,7 +8,7 @@ from langchain_openai import ChatOpenAI
 from app.security.prompts import MATH_AGENT_SYSTEM_PROMPT
 
 
-def solve_math(query: str, llm: ChatOpenAI) -> str:
+async def solve_math(query: str, llm: ChatOpenAI) -> str:
     """
     Solve a mathematical expression using an LLM calculator.
 
@@ -30,8 +30,8 @@ def solve_math(query: str, llm: ChatOpenAI) -> str:
     ]
 
     try:
-        # Get response from LLM
-        response = llm.invoke(messages)
+        # Get response from LLM asynchronously
+        response = await llm.ainvoke(messages)
         # Handle different response formats
         if isinstance(response.content, list):
             result = " ".join(str(item) for item in response.content).strip()

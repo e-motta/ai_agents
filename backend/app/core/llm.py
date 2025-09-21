@@ -5,8 +5,6 @@ This module provides factory functions to create LLM instances consistently
 across all agents, ensuring uniform configuration and easy maintenance.
 """
 
-from typing import Optional
-
 from langchain_openai import ChatOpenAI
 from llama_index.llms.openai import OpenAI as LlamaIndexOpenAI
 from llama_index.embeddings.openai import OpenAIEmbedding
@@ -16,9 +14,7 @@ from llama_index.core import Settings
 from app.core.settings import get_settings
 
 
-def get_chat_openai_llm(
-    model: Optional[str] = None, temperature: float = 0
-) -> ChatOpenAI:
+def get_chat_openai_llm(model: str | None = None, temperature: float = 0) -> ChatOpenAI:
     """
     Create a ChatOpenAI instance for LangChain agents.
 
@@ -38,10 +34,10 @@ def get_chat_openai_llm(
 
 
 def setup_llamaindex_settings(
-    llm_model: Optional[str] = None,
-    embedding_model: Optional[str] = None,
-    chunk_size: Optional[int] = None,
-    chunk_overlap: Optional[int] = None,
+    llm_model: str | None = None,
+    embedding_model: str | None = None,
+    chunk_size: int | None = None,
+    chunk_overlap: int | None = None,
 ) -> None:
     """
     Setup LlamaIndex global settings for LLM and embeddings.
