@@ -71,7 +71,7 @@ class RedisService:
         try:
             # Create message entry
             message_entry = {
-                "timestamp": datetime.now(UTC),
+                "timestamp": datetime.now(UTC).isoformat(),
                 "user_message": user_message,
                 "agent_response": agent_response,
             }
