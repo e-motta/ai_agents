@@ -6,12 +6,14 @@ from app.dependencies import (
     get_math_llm,
     get_router_llm,
 )
+from app.core.logging import configure_logging
+
+configure_logging()
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Warm up expensive resources once on startup."""
-    # Initialize cached LLMs
     get_math_llm()
     get_router_llm()
     get_knowledge_engine()
