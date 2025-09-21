@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from functools import lru_cache
 from pathlib import Path
-from typing import Dict, Optional
 
 from pydantic import SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -21,7 +20,7 @@ class Settings(BaseSettings):
     )
 
     # Secrets / API keys
-    OPENAI_API_KEY: Optional[SecretStr] = None
+    OPENAI_API_KEY: SecretStr | None = None
 
     # LLM defaults
     LLM_MODEL: str = "gpt-3.5-turbo"
@@ -42,7 +41,7 @@ class Settings(BaseSettings):
     )
 
     @property
-    def REQUEST_HEADERS(self) -> Dict[str, str]:
+    def REQUEST_HEADERS(self) -> dict[str, str]:
         return {"User-Agent": self.REQUEST_HEADERS_USER_AGENT}
 
     # Helpers

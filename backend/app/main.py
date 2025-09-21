@@ -1,7 +1,11 @@
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from app.api.v1.chat import router as chat_router
-from app.dependencies import get_math_llm, get_router_llm, initialize_knowledge
+from app.dependencies import (
+    get_knowledge_engine,
+    get_math_llm,
+    get_router_llm,
+)
 
 
 @asynccontextmanager
@@ -10,8 +14,7 @@ async def lifespan(app: FastAPI):
     # Initialize cached LLMs
     get_math_llm()
     get_router_llm()
-    # Initialize knowledge agent
-    initialize_knowledge()
+    get_knowledge_engine()
     yield
 
 

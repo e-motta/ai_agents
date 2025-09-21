@@ -1,12 +1,13 @@
 from functools import lru_cache
 
 from langchain_openai import ChatOpenAI
+from llama_index.core.base.base_query_engine import BaseQueryEngine
 
-from app.agents.knowledge_agent import initialize_knowledge_agent
 from app.core.llm import (
     get_math_agent_llm,
     get_router_agent_llm,
 )
+from app.agents.knowledge_agent import get_query_engine
 
 
 @lru_cache(maxsize=1)
@@ -32,12 +33,11 @@ def get_router_llm() -> ChatOpenAI:
 
 
 @lru_cache(maxsize=1)
-def initialize_knowledge() -> bool:
+def get_knowledge_engine() -> BaseQueryEngine:
     """
-    Dependency: ensure the knowledge agent is initialized once and cached.
+    Dependency: return a cached instance of the query engine.
 
-    Returns True if initialized. The boolean return is a lightweight sentinel
-    that can be injected to guarantee initialization side-effect.
+    Uses LRU cache to ensure the expensive client is created once
+    per process and reused across requests.
     """
-    initialize_knowledge_agent()
-    return True
+    return get_query_engine()

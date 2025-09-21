@@ -1,5 +1,4 @@
 from pydantic import BaseModel
-from typing import List
 
 
 class ChatRequest(BaseModel):
@@ -19,4 +18,4 @@ class ChatResponse(BaseModel):
     conversation_id: str
     router_decision: str
     response: str
-    agent_workflow: List[WorkflowStep]
+    agent_workflow: list[WorkflowStep]

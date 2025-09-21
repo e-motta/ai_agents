@@ -1,4 +1,5 @@
 import pytest
+
 pytest.importorskip("fastapi")
 pytest.importorskip("langchain")
 pytest.importorskip("langchain_openai")
@@ -7,7 +8,7 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from app.api.v1.chat import router as chat_router
-from app.dependencies import get_router_llm, get_math_llm, initialize_knowledge
+from app.dependencies import get_router_llm, get_math_llm, get_knowledge_engine
 
 
 class DummyLLM:
@@ -26,12 +27,12 @@ class FailingLLM:
 @pytest.fixture()
 def client_factory():
     # Build a minimal FastAPI app to avoid startup warmups from app.main
-    def _make(router_llm, math_llm):
+    def _make(router_llm, math_llm, knowledge_engine):
         app = FastAPI()
         app.include_router(chat_router, prefix="/api/v1")
         app.dependency_overrides[get_router_llm] = lambda: router_llm
         app.dependency_overrides[get_math_llm] = lambda: math_llm
-        app.dependency_overrides[initialize_knowledge] = lambda: True
+        app.dependency_overrides[get_knowledge_engine] = lambda: knowledge_engine
         client = TestClient(app)
         return client
 
