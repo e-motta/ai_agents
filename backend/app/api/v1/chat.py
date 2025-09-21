@@ -6,7 +6,12 @@ from typing import Callable, Awaitable, Any
 from langchain_openai.chat_models.base import ChatOpenAI
 from llama_index.core.base.base_query_engine import BaseQueryEngine
 
-from app.dependencies import get_router_llm, get_math_llm, get_knowledge_engine
+from app.dependencies import (
+    get_router_llm,
+    get_math_llm,
+    get_knowledge_engine,
+    SanitizedMessage,
+)
 from app.agents.router_agent import route_query
 from app.agents.math_agent import solve_math
 from app.agents.knowledge_agent import query_knowledge
@@ -23,14 +28,14 @@ logger = get_logger(__name__)
 @log_and_handle_agent_errors(logger, agent_name="MathAgent", error_status_code=400)
 async def _process_math(context: dict[str, Any]) -> str:
     """Handle MathAgent flow."""
-    return await solve_math(context["payload"].message, context["math_llm"])
+    return await solve_math(context["sanitized_message"], context["math_llm"])
 
 
 @log_and_handle_agent_errors(logger, agent_name="KnowledgeAgent", error_status_code=400)
 async def _process_knowledge(context: dict[str, Any]) -> str:
     """Handle KnowledgeAgent flow."""
     return await query_knowledge(
-        context["payload"].message, context["knowledge_engine"]
+        context["sanitized_message"], context["knowledge_engine"]
     )
 
 
@@ -110,25 +115,26 @@ def _save_conversation_to_redis(
 @router.post("/chat", response_model=ChatResponse)
 async def chat(
     payload: ChatRequest,
+    sanitized_message: SanitizedMessage,
     router_llm: ChatOpenAI = Depends(get_router_llm),
     math_llm: ChatOpenAI = Depends(get_math_llm),
     knowledge_engine: BaseQueryEngine = Depends(get_knowledge_engine),
 ) -> ChatResponse:
     start_time = time.time()
 
-    if not payload.message or not payload.message.strip():
+    if not sanitized_message or not sanitized_message.strip():
         raise HTTPException(status_code=422, detail="'message' cannot be empty")
 
     logger.info(
         "Chat request received",
         conversation_id=payload.conversation_id,
         user_id=payload.user_id,
-        message_preview=payload.message[:100],
+        message_preview=sanitized_message[:100],
     )
 
     try:
         decision = await route_query(
-            payload.message,
+            sanitized_message,
             llm=router_llm,
             conversation_id=payload.conversation_id,
             user_id=payload.user_id,
@@ -148,6 +154,7 @@ async def chat(
 
     context = {
         "payload": payload,
+        "sanitized_message": sanitized_message,
         "math_llm": math_llm,
         "knowledge_engine": knowledge_engine,
     }
@@ -171,7 +178,7 @@ async def chat(
     )
 
     _save_conversation_to_redis(
-        payload.conversation_id, payload.user_id, payload.message, final_response
+        payload.conversation_id, payload.user_id, sanitized_message, final_response
     )
 
     return ChatResponse(
