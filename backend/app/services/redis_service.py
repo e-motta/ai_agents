@@ -6,9 +6,8 @@ using Redis as the storage backend.
 """
 
 import json
-import logging
 from typing import Any
-from datetime import datetime
+from datetime import datetime, UTC
 
 import redis
 from redis.exceptions import RedisError
@@ -44,7 +43,7 @@ class RedisService:
                 decode_responses=True,
                 socket_connect_timeout=settings.REDIS_SOCKET_CONNECT_TIMEOUT,
                 socket_timeout=settings.REDIS_SOCKET_TIMEOUT,
-                retry_on_timeout=settings.REDIS_RETRY_ON_TIMEOUT,
+                retry_on_error=[TimeoutError, ConnectionError],
             )
             # Test connection
             self.redis_client.ping()
@@ -72,7 +71,7 @@ class RedisService:
         try:
             # Create message entry
             message_entry = {
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(UTC),
                 "user_message": user_message,
                 "agent_response": agent_response,
             }
