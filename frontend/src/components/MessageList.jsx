@@ -35,23 +35,13 @@ const MessageList = ({ messages, isLoading }) => {
       {messages.map((msg, index) => (
         <Message
           key={index}
-          message={msg.user_message || msg.message}
+          message={msg.user_message || msg.agent_response}
           isUser={!!msg.user_message}
           timestamp={msg.timestamp}
-          agent={msg.agent_response ? "LLM" : msg.router_decision}
+          agent={msg.router_decision}
           isPending={msg.isPending}
         />
       ))}
-      {messages.some((msg) => msg.isPending) && (
-        <div className="flex justify-start">
-          <div className="bg-gray-200 px-4 py-2 rounded-lg">
-            <div className="flex items-center space-x-2">
-              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-600"></div>
-              <span className="text-sm text-gray-600">Processando...</span>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

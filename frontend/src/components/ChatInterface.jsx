@@ -1,6 +1,5 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { chatApi, ApiError } from "../services/api";
-import { generateConversationId } from "../utils/storage";
 import MessageList from "./MessageList";
 import MessageInput from "./MessageInput";
 import ErrorNotification from "./ErrorNotification";
@@ -8,20 +7,10 @@ import ErrorNotification from "./ErrorNotification";
 const ChatInterface = ({ conversationId, userId, onConversationChange }) => {
   const [messages, setMessages] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [isLoadingHistory, setIsLoadingHistory] = useState(true);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const [error, setError] = useState(null);
 
-  // Load conversation history when conversationId changes
-  useEffect(() => {
-    if (conversationId) {
-      loadConversationHistory();
-    } else {
-      setMessages([]);
-      setIsLoadingHistory(false);
-    }
-  }, [conversationId]);
-
-  const loadConversationHistory = async () => {
+  const loadConversationHistory = useCallback(async () => {
     if (!conversationId) return;
 
     setIsLoadingHistory(true);
@@ -31,12 +20,26 @@ const ChatInterface = ({ conversationId, userId, onConversationChange }) => {
       const history = await chatApi.getConversationHistory(conversationId);
 
       // Transform the history into our message format
-      const formattedMessages = history.history.map((item) => ({
-        user_message: item.user_message,
-        agent_response: item.agent_response,
-        timestamp: item.timestamp,
-        router_decision: "LLM", // Default agent name
-      }));
+      const formattedMessages = [];
+      history.history.forEach((item) => {
+        // Add user message
+        if (item.user_message) {
+          formattedMessages.push({
+            user_message: item.user_message,
+            timestamp: item.timestamp,
+            isPending: false,
+          });
+        }
+        // Add agent response
+        if (item.agent_response) {
+          formattedMessages.push({
+            agent_response: item.agent_response,
+            timestamp: item.timestamp,
+            router_decision: "KnowledgeAgent", // Default agent name for historical messages
+            isPending: false,
+          });
+        }
+      });
 
       setMessages(formattedMessages);
     } catch (err) {
@@ -49,16 +52,19 @@ const ChatInterface = ({ conversationId, userId, onConversationChange }) => {
     } finally {
       setIsLoadingHistory(false);
     }
-  };
+  }, [conversationId]);
+
+  // Load conversation history when conversationId changes
+  useEffect(() => {
+    if (conversationId) {
+      loadConversationHistory();
+    } else {
+      setMessages([]);
+      setIsLoadingHistory(false);
+    }
+  }, [conversationId, loadConversationHistory]);
 
   const handleSendMessage = async (messageText) => {
-    if (!conversationId) {
-      // Create new conversation
-      const newConversationId = generateConversationId();
-      onConversationChange(newConversationId);
-      // The useEffect will handle loading the new conversation
-      return;
-    }
 
     // Add user message optimistically
     const userMessage = {
