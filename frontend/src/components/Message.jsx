@@ -31,7 +31,10 @@ const Message = ({ message, isUser, timestamp, agent, isPending = false }) => {
           <div className="text-xs mt-1 text-gray-500">Agent: {agent}</div>
         )}
         {isPending && (
-          <div className="text-xs mt-1 text-gray-500">Enviando...</div>
+          <div className="flex items-center space-x-2 mt-1">
+            <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-gray-600"></div>
+            <span className="text-xs text-gray-500">Processando...</span>
+          </div>
         )}
       </div>
     </div>
