@@ -83,7 +83,7 @@ HANDLER_BY_DECISION: dict[
 
 
 def _save_conversation_to_redis(
-    conversation_id: str, user_id: str, message: str, agent_response: str
+    conversation_id: str, user_id: str, message: str, agent_response: str, agent: str
 ):
     try:
         redis_success = add_message_to_history(
@@ -91,6 +91,7 @@ def _save_conversation_to_redis(
             conversation_id=conversation_id,
             user_message=message,
             agent_response=agent_response,
+            agent=agent,
         )
         if redis_success:
             logger.info(
@@ -179,7 +180,7 @@ async def chat(
     )
 
     _save_conversation_to_redis(
-        payload.conversation_id, payload.user_id, sanitized_message, final_response
+        payload.conversation_id, payload.user_id, sanitized_message, final_response, str(decision)
     )
 
     return ChatResponse(

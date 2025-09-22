@@ -55,7 +55,7 @@ class RedisService:
             raise
 
     def add_message_to_history(
-        self, conversation_id: str, user_message: str, agent_response: str, user_id: str
+        self, conversation_id: str, user_message: str, agent_response: str, user_id: str, agent: str
     ) -> bool:
         """
         Add a message exchange to conversation history.
@@ -65,6 +65,7 @@ class RedisService:
             user_message: The user's message
             agent_response: The agent's response
             user_id: The user's identifier
+            agent: The agent responsible for the response
 
         Returns:
             bool: True if successful, False otherwise
@@ -76,6 +77,7 @@ class RedisService:
                 "user_id": user_id,
                 "user_message": user_message,
                 "agent_response": agent_response,
+                "agent": agent,
             }
 
             # Use Redis list to store conversation history
@@ -230,7 +232,7 @@ def _get_redis_service() -> RedisService | None:
 
 # Convenience functions for direct use
 def add_message_to_history(
-    user_id: str, conversation_id: str, user_message: str, agent_response: str
+    user_id: str, conversation_id: str, user_message: str, agent_response: str, agent: str
 ) -> bool:
     """
     Add a message exchange to conversation history.
@@ -240,6 +242,7 @@ def add_message_to_history(
         user_message: The user's message
         agent_response: The agent's response
         user_id: The user's identifier
+        agent: The agent responsible for the response
 
     Returns:
         bool: True if successful, False otherwise
@@ -249,7 +252,7 @@ def add_message_to_history(
         logger.warning("Redis service unavailable, message not stored")
         return False
     return service.add_message_to_history(
-        conversation_id, user_message, agent_response, user_id
+        conversation_id, user_message, agent_response, user_id, agent
     )
 
 
