@@ -35,7 +35,7 @@ const ChatInterface = ({ conversationId, userId, onConversationChange }) => {
           formattedMessages.push({
             agent_response: item.agent_response,
             timestamp: item.timestamp,
-            router_decision: "KnowledgeAgent", // Default agent name for historical messages
+            router_decision: item.agent || "History", // Default agent name for historical messages
             isPending: false,
           });
         }
@@ -65,7 +65,6 @@ const ChatInterface = ({ conversationId, userId, onConversationChange }) => {
   }, [conversationId, loadConversationHistory]);
 
   const handleSendMessage = async (messageText) => {
-
     // Add user message optimistically
     const userMessage = {
       user_message: messageText,

@@ -130,11 +130,27 @@ async def query_knowledge(query: str, query_engine: BaseQueryEngine) -> str:
         answer = str(response).strip()
         execution_time = time.time() - start_time
 
+        # Extract source information from the response
+        sources = []
+        if hasattr(response, 'source_nodes') and response.source_nodes:
+            for node in response.source_nodes:
+                if hasattr(node, 'node') and hasattr(node.node, 'metadata'):
+                    source_info = {
+                        'url': node.node.metadata.get('url', 'Unknown'),
+                        'source': node.node.metadata.get('source', 'Unknown'),
+                        'score': getattr(node, 'score', None),
+                        'start_char_idx': node.node.metadata.get('start_char_idx', None),
+                        'end_char_idx': node.node.metadata.get('end_char_idx', None),
+                        'node_id': getattr(node.node, 'node_id', None)
+                    }
+                    sources.append(source_info)
+
         if not answer or answer.lower() in ["", "none", "null"]:
             logger.info(
                 "No information found in knowledge base",
                 query=query,
                 execution_time=execution_time,
+                sources=sources,
             )
             return "I don't have information about that in the available documentation."
 
@@ -143,6 +159,7 @@ async def query_knowledge(query: str, query_engine: BaseQueryEngine) -> str:
             query=query,
             answer_preview=answer[:100],
             execution_time=execution_time,
+            sources=sources,
         )
 
         return answer
