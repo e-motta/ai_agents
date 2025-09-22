@@ -2,28 +2,32 @@
 
 # Backend Documentation
 
-This directory contains the FastAPI backend for the monorepo application.
+This directory contains the FastAPI backend for the agents application.
 
 ## Setup Instructions
 
 1. **Clone the repository:**
+
    ```
    git clone <repository-url>
-   cd monorepo-app/backend
+   cd backend
    ```
 
 2. **Create a virtual environment (optional but recommended):**
+
    ```
    python -m venv venv
    source venv/bin/activate  # On Windows use `venv\Scripts\activate`
    ```
 
 3. **Install the required dependencies:**
+
    ```
    pip install -r requirements.txt
    ```
 
 4. **Run the FastAPI application:**
+
    ```
    uvicorn app.main:app --reload
    ```
