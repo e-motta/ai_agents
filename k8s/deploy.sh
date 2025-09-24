@@ -70,13 +70,11 @@ fi
 echo "🔧 Deploying Backend..."
 kubectl apply -f backend/deployment.yaml
 kubectl apply -f backend/service.yaml
-kubectl apply -f backend/ingress.yaml
 
 # Deploy Frontend
 echo "🌐 Deploying Frontend..."
 kubectl apply -f frontend/deployment.yaml
 kubectl apply -f frontend/service.yaml
-kubectl apply -f frontend/ingress.yaml
 
 # Wait for deployments to be ready
 echo "⏳ Waiting for deployments to be ready..."

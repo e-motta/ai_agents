@@ -199,7 +199,9 @@ class TestSolveMath:
         mock_response.content = "This is not a number"
         mock_llm.ainvoke.return_value = mock_response
 
-        with pytest.raises(ValueError, match="LLM returned a non-numerical result"):
+        with pytest.raises(
+            ValueError, match="LLM returned a non-numerical or invalid result"
+        ):
             await solve_math("2 + 2", mock_llm)
 
     @pytest.mark.asyncio

@@ -311,35 +311,180 @@ class TestChatAPI:
         assert data["router_decision"] == "KnowledgeAgent"
         assert data["response"] == "I cannot help with that request."
 
-    def test_chat_conversation_history_endpoint(self, test_client):
+    def test_chat_conversation_history_endpoint(self, test_client, mock_redis_service):
         """Test the conversation history endpoint."""
-        # Mock Redis service
-        with patch("app.api.v1.chat.get_history") as mock_get_history:
-            mock_get_history.return_value = [
-                {"user": "Hello", "agent": "Hi there!"},
-                {"user": "How are you?", "agent": "I'm doing well, thank you!"},
-            ]
+        # Configure mock Redis service
+        mock_redis_service.get_history.return_value = [
+            {"user": "Hello", "agent": "Hi there!"},
+            {"user": "How are you?", "agent": "I'm doing well, thank you!"},
+        ]
 
+        response = test_client.get("/api/v1/chat/history/test_conv_123")
+
+        assert response.status_code == 200
+        data = response.json()
+
+        assert data["conversation_id"] == "test_conv_123"
+        assert data["message_count"] == 2
+        assert len(data["history"]) == 2
+
+        # Verify Redis service was called
+        mock_redis_service.get_history.assert_called_once_with("test_conv_123")
+
+    def test_chat_conversation_history_error_handling(
+        self, test_client, mock_redis_service
+    ):
+        """Test error handling in conversation history endpoint."""
+        # Configure mock Redis service to raise an exception
+        mock_redis_service.get_history.side_effect = Exception("Redis Error")
+
+        response = test_client.get("/api/v1/chat/history/test_conv_123")
+
+        assert response.status_code == 500
+        data = response.json()
+        assert "Failed to retrieve conversation history" in data["detail"]
+
+        # Verify Redis service was called
+        mock_redis_service.get_history.assert_called_once_with("test_conv_123")
+
+    def test_chat_user_conversations_endpoint(self, test_client, mock_redis_service):
+        """Test the user conversations endpoint."""
+        # Configure mock Redis service
+        mock_redis_service.get_user_conversations.return_value = [
+            "conv_123",
+            "conv_456",
+            "conv_789",
+        ]
+
+        response = test_client.get("/api/v1/chat/user/test_user_123/conversations")
+
+        assert response.status_code == 200
+        data = response.json()
+
+        assert data["user_id"] == "test_user_123"
+        assert data["conversation_count"] == 3
+        assert data["conversation_ids"] == ["conv_123", "conv_456", "conv_789"]
+
+        # Verify Redis service was called
+        mock_redis_service.get_user_conversations.assert_called_once_with(
+            "test_user_123"
+        )
+
+    def test_chat_user_conversations_error_handling(
+        self, test_client, mock_redis_service
+    ):
+        """Test error handling in user conversations endpoint."""
+        # Configure mock Redis service to raise an exception
+        mock_redis_service.get_user_conversations.side_effect = Exception("Redis Error")
+
+        response = test_client.get("/api/v1/chat/user/test_user_123/conversations")
+
+        assert response.status_code == 500
+        data = response.json()
+        assert "Failed to retrieve user conversations" in data["detail"]
+
+        # Verify Redis service was called
+        mock_redis_service.get_user_conversations.assert_called_once_with(
+            "test_user_123"
+        )
+
+    def test_chat_redis_service_unavailable(self, test_client):
+        """Test behavior when Redis service is unavailable."""
+        # Override the Redis dependency to return None
+        from app.main import app
+        from app.dependencies import get_redis_service
+
+        app.dependency_overrides[get_redis_service] = lambda: None
+
+        try:
+            # Test conversation history with unavailable Redis
             response = test_client.get("/api/v1/chat/history/test_conv_123")
-
             assert response.status_code == 200
             data = response.json()
-
             assert data["conversation_id"] == "test_conv_123"
-            assert data["message_count"] == 2
-            assert len(data["history"]) == 2
+            assert data["message_count"] == 0
+            assert data["history"] == []
 
-    def test_chat_conversation_history_error_handling(self, test_client):
-        """Test error handling in conversation history endpoint."""
-        # Mock Redis service to raise an exception
-        with patch("app.api.v1.chat.get_history") as mock_get_history:
-            mock_get_history.side_effect = Exception("Redis Error")
-
-            response = test_client.get("/api/v1/chat/history/test_conv_123")
-
-            assert response.status_code == 500
+            # Test user conversations with unavailable Redis
+            response = test_client.get("/api/v1/chat/user/test_user_123/conversations")
+            assert response.status_code == 200
             data = response.json()
-            assert "Failed to retrieve conversation history" in data["detail"]
+            assert data["user_id"] == "test_user_123"
+            assert data["conversation_count"] == 0
+            assert data["conversation_ids"] == []
+
+        finally:
+            # Clean up
+            app.dependency_overrides.clear()
+
+    def test_chat_saves_to_redis(
+        self, test_client, mock_llm, mock_knowledge_engine, mock_redis_service
+    ):
+        """Test that conversations are saved to Redis."""
+        # Mock router LLM response
+        router_response = AsyncMock()
+        router_response.content = "MathAgent"
+
+        # Mock math LLM response
+        math_response = AsyncMock()
+        math_response.content = "4"
+
+        mock_llm.ainvoke.side_effect = [router_response, math_response]
+
+        payload = {
+            "message": "What is 2 + 2?",
+            "user_id": "test_user_123",
+            "conversation_id": "test_conv_456",
+        }
+
+        response = test_client.post("/api/v1/chat", json=payload)
+
+        assert response.status_code == 200
+
+        # Verify Redis service was called to save the conversation
+        mock_redis_service.add_message_to_history.assert_called_once_with(
+            conversation_id="test_conv_456",
+            user_message="What is 2 + 2?",
+            agent_response="4",
+            user_id="test_user_123",
+            agent="MathAgent",
+        )
+
+    def test_chat_redis_unavailable_saves_nothing(
+        self, test_client, mock_llm, mock_knowledge_engine
+    ):
+        """Test that conversations are not saved when Redis is unavailable."""
+        # Override the Redis dependency to return None
+        from app.main import app
+        from app.dependencies import get_redis_service
+
+        app.dependency_overrides[get_redis_service] = lambda: None
+
+        try:
+            # Mock router LLM response
+            router_response = AsyncMock()
+            router_response.content = "MathAgent"
+
+            # Mock math LLM response
+            math_response = AsyncMock()
+            math_response.content = "4"
+
+            mock_llm.ainvoke.side_effect = [router_response, math_response]
+
+            payload = {
+                "message": "What is 2 + 2?",
+                "user_id": "test_user_123",
+                "conversation_id": "test_conv_456",
+            }
+
+            response = test_client.post("/api/v1/chat", json=payload)
+
+            assert response.status_code == 200
+            # The response should still work even without Redis
+
+        finally:
+            # Clean up
+            app.dependency_overrides.clear()
 
     def test_chat_response_structure(
         self, test_client, mock_llm, mock_knowledge_engine

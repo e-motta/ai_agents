@@ -11,6 +11,7 @@ from app.dependencies import (
     get_math_llm,
     get_knowledge_engine,
     SanitizedMessage,
+    RedisServiceDep,
 )
 from app.agents.router_agent import route_query
 from app.agents.math_agent import solve_math
@@ -19,11 +20,6 @@ from app.enums import ResponseEnum
 from app.models import ChatRequest, ChatResponse, WorkflowStep
 from app.core.logging import get_logger, log_system_event
 from app.core.decorators import log_and_handle_agent_errors
-from app.services.redis_service import (
-    add_message_to_history,
-    get_history,
-    get_user_conversations,
-)
 
 router = APIRouter()
 logger = get_logger(__name__)
@@ -91,14 +87,27 @@ HANDLER_BY_DECISION: dict[
 
 
 def _save_conversation_to_redis(
-    conversation_id: str, user_id: str, message: str, agent_response: str, agent: str
+    redis_service: RedisServiceDep,
+    conversation_id: str,
+    user_id: str,
+    message: str,
+    agent_response: str,
+    agent: str,
 ):
-    try:
-        redis_success = add_message_to_history(
+    if redis_service is None:
+        logger.warning(
+            "Redis service unavailable, conversation not saved",
+            conversation_id=conversation_id,
             user_id=user_id,
+        )
+        return
+
+    try:
+        redis_success = redis_service.add_message_to_history(
             conversation_id=conversation_id,
             user_message=message,
             agent_response=agent_response,
+            user_id=user_id,
             agent=agent,
         )
         if redis_success:
@@ -126,6 +135,7 @@ def _save_conversation_to_redis(
 async def chat(
     payload: ChatRequest,
     sanitized_message: SanitizedMessage,
+    redis_service: RedisServiceDep,
     router_llm: ChatOpenAI = Depends(get_router_llm),
     math_llm: ChatOpenAI = Depends(get_math_llm),
     knowledge_engine: BaseQueryEngine | None = Depends(get_knowledge_engine),
@@ -188,6 +198,7 @@ async def chat(
     )
 
     _save_conversation_to_redis(
+        redis_service,
         payload.conversation_id,
         payload.user_id,
         sanitized_message,
@@ -205,7 +216,10 @@ async def chat(
 
 
 @router.get("/chat/history/{conversation_id}")
-async def get_conversation_history(conversation_id: str) -> dict:
+async def get_conversation_history(
+    conversation_id: str,
+    redis_service: RedisServiceDep,
+) -> dict:
     """
     Retrieve conversation history for a given conversation ID.
 
@@ -220,8 +234,19 @@ async def get_conversation_history(conversation_id: str) -> dict:
         conversation_id=conversation_id,
     )
 
+    if redis_service is None:
+        logger.warning(
+            "Redis service unavailable, returning empty history",
+            conversation_id=conversation_id,
+        )
+        return {
+            "conversation_id": conversation_id,
+            "message_count": 0,
+            "history": [],
+        }
+
     try:
-        history = get_history(conversation_id)
+        history = redis_service.get_history(conversation_id)
 
         logger.info(
             "Conversation history retrieved",
@@ -247,7 +272,10 @@ async def get_conversation_history(conversation_id: str) -> dict:
 
 
 @router.get("/chat/user/{user_id}/conversations")
-async def get_user_conversations_endpoint(user_id: str) -> dict:
+async def get_user_conversations_endpoint(
+    user_id: str,
+    redis_service: RedisServiceDep,
+) -> dict:
     """
     Retrieve all conversation IDs for a specific user.
 
@@ -262,8 +290,19 @@ async def get_user_conversations_endpoint(user_id: str) -> dict:
         user_id=user_id,
     )
 
+    if redis_service is None:
+        logger.warning(
+            "Redis service unavailable, returning empty conversation list",
+            user_id=user_id,
+        )
+        return {
+            "user_id": user_id,
+            "conversation_count": 0,
+            "conversation_ids": [],
+        }
+
     try:
-        conversation_ids = get_user_conversations(user_id)
+        conversation_ids = redis_service.get_user_conversations(user_id)
 
         logger.info(
             "User conversations retrieved",

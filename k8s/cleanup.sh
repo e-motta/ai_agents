@@ -19,15 +19,16 @@ fi
 
 echo "✅ Kubernetes cluster connection verified"
 
+echo "🌐 Removing Ingress..."
+kubectl delete -f ingress-local.yaml --ignore-not-found=true
+
 # Remove Frontend
 echo "🌐 Removing Frontend..."
-kubectl delete -f frontend/ingress.yaml --ignore-not-found=true
 kubectl delete -f frontend/service.yaml --ignore-not-found=true
 kubectl delete -f frontend/deployment.yaml --ignore-not-found=true
 
 # Remove Backend
 echo "🔧 Removing Backend..."
-kubectl delete -f backend/ingress.yaml --ignore-not-found=true
 kubectl delete -f backend/service.yaml --ignore-not-found=true
 kubectl delete -f backend/deployment.yaml --ignore-not-found=true
 

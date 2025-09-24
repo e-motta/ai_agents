@@ -58,15 +58,22 @@ async def solve_math(query: str, llm: ChatOpenAI) -> str:
 
         try:
             # Verify that the result is a valid number.
-            float(result)
+            result_float = float(result)
+            # Check for reasonable bounds
+            if abs(result_float) > 1e10:  # Prevent overflow
+                raise ValueError(f"Result too large: {result}")
+            if result_float != result_float:  # Check for NaN
+                raise ValueError(f"Invalid result: {result}")
         except ValueError:
             logger.error(
-                "Math evaluation failed - non-numerical result",
+                "Math evaluation failed - non-numerical or invalid result",
                 query=query,
                 result=result,
                 execution_time=execution_time,
             )
-            raise ValueError(f"LLM returned a non-numerical result: '{result}'")
+            raise ValueError(
+                f"LLM returned a non-numerical or invalid result: '{result}'"
+            )
 
         logger.info(
             "Math evaluation completed",
