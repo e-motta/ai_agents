@@ -1,5 +1,14 @@
-const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
+// Get API base URL from runtime configuration or fallback to build-time env var
+const getApiBaseUrl = () => {
+  // Try runtime configuration first (for production)
+  if (window.APP_CONFIG && window.APP_CONFIG.API_BASE_URL) {
+    return window.APP_CONFIG.API_BASE_URL;
+  }
+  // Fallback to build-time environment variable (for development)
+  return import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
+};
+
+const API_BASE_URL = getApiBaseUrl();
 
 class ApiError extends Error {
   constructor(message, status) {
@@ -42,7 +51,7 @@ const apiRequest = async (endpoint, options = {}) => {
 export const chatApi = {
   // Send a message to the chat
   sendMessage: async (message, userId, conversationId) => {
-    return apiRequest("/api/v1/chat", {
+    return apiRequest("/chat", {
       method: "POST",
       body: JSON.stringify({
         message,
@@ -54,12 +63,12 @@ export const chatApi = {
 
   // Get user conversations
   getUserConversations: async (userId) => {
-    return apiRequest(`/api/v1/chat/user/${userId}/conversations`);
+    return apiRequest(`/chat/user/${userId}/conversations`);
   },
 
   // Get conversation history
   getConversationHistory: async (conversationId) => {
-    return apiRequest(`/api/v1/chat/history/${conversationId}`);
+    return apiRequest(`/chat/history/${conversationId}`);
   },
 };
 

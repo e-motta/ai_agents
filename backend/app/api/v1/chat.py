@@ -1,6 +1,6 @@
 import time
 import asyncio
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, status
 from typing import Callable, Awaitable, Any
 
 from langchain_openai.chat_models.base import ChatOpenAI
@@ -19,7 +19,11 @@ from app.enums import ResponseEnum
 from app.models import ChatRequest, ChatResponse, WorkflowStep
 from app.core.logging import get_logger, log_system_event
 from app.core.decorators import log_and_handle_agent_errors
-from app.services.redis_service import add_message_to_history, get_history, get_user_conversations
+from app.services.redis_service import (
+    add_message_to_history,
+    get_history,
+    get_user_conversations,
+)
 
 router = APIRouter()
 logger = get_logger(__name__)
@@ -34,9 +38,13 @@ async def _process_math(context: dict[str, Any]) -> str:
 @log_and_handle_agent_errors(logger, agent_name="KnowledgeAgent", error_status_code=400)
 async def _process_knowledge(context: dict[str, Any]) -> str:
     """Handle KnowledgeAgent flow."""
-    return await query_knowledge(
-        context["sanitized_message"], context["knowledge_engine"]
-    )
+    knowledge_engine = context["knowledge_engine"]
+    if knowledge_engine is None:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="The knowledge base is not available at the moment. It may be initializing.",
+        )
+    return await query_knowledge(context["sanitized_message"], knowledge_engine)
 
 
 def _process_unsupported_language(context: dict[str, Any]) -> tuple[str, WorkflowStep]:
@@ -120,7 +128,7 @@ async def chat(
     sanitized_message: SanitizedMessage,
     router_llm: ChatOpenAI = Depends(get_router_llm),
     math_llm: ChatOpenAI = Depends(get_math_llm),
-    knowledge_engine: BaseQueryEngine = Depends(get_knowledge_engine),
+    knowledge_engine: BaseQueryEngine | None = Depends(get_knowledge_engine),
 ) -> ChatResponse:
     start_time = time.time()
 
@@ -180,7 +188,11 @@ async def chat(
     )
 
     _save_conversation_to_redis(
-        payload.conversation_id, payload.user_id, sanitized_message, final_response, str(decision)
+        payload.conversation_id,
+        payload.user_id,
+        sanitized_message,
+        final_response,
+        str(decision),
     )
 
     return ChatResponse(

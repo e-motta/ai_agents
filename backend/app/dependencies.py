@@ -37,12 +37,13 @@ def get_router_llm() -> ChatOpenAI:
 
 
 @lru_cache(maxsize=1)
-def get_knowledge_engine() -> BaseQueryEngine:
+def get_knowledge_engine() -> BaseQueryEngine | None:
     """
     Dependency: return a cached instance of the query engine.
 
     Uses LRU cache to ensure the expensive client is created once
     per process and reused across requests.
+    Returns None if the vector store is not available.
     """
     return get_query_engine()
 
