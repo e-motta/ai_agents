@@ -32,6 +32,9 @@ kubectl apply -f configmap.yaml
 kubectl apply -f secrets.yaml
 
 # Create Docker images
+# IMPORTANT: This step assumes a local Kubernetes environment (e.g., Minikube, Docker Desktop)
+# where the cluster can access locally built images. For other environments,
+# you must push these images to a container registry and update the Kubernetes manifests.
 docker build -t cloudwalk-backend:latest ../backend
 docker build -t cloudwalk-frontend:latest ../frontend
 
