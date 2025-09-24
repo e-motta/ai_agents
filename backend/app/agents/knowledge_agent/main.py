@@ -38,7 +38,7 @@ def build_index_from_scratch():
                     "This may be due to multiple pods accessing the same PVC. "
                     "Attempting to build index in existing directory.",
                     vector_store_path=str(VECTOR_STORE_PATH),
-                    error=str(e)
+                    error=str(e),
                 )
                 # Don't exit, continue with building in the existing directory
             else:
@@ -81,15 +81,21 @@ async def build_index_background():
         # Check if the collection actually exists, not just the directory
         if _settings.VECTOR_STORE_PATH.exists():
             try:
-                chroma_client = chromadb.PersistentClient(path=str(_settings.VECTOR_STORE_PATH / "chroma_db"))
+                chroma_client = chromadb.PersistentClient(
+                    path=str(_settings.VECTOR_STORE_PATH / "chroma_db")
+                )
                 chroma_client.get_collection(_settings.COLLECTION_NAME)
-                logger.info("Vector store and collection already exist, skipping background build")
+                logger.info(
+                    "Vector store and collection already exist, skipping background build"
+                )
                 return
             except Exception:
                 # Collection doesn't exist, proceed with building
                 pass
 
-        logger.info("Vector store or collection not found, starting background index build...")
+        logger.info(
+            "Vector store or collection not found, starting background index build..."
+        )
         from app.agents.knowledge_agent.main import build_index_from_scratch
 
         build_index_from_scratch()
@@ -189,11 +195,6 @@ async def query_knowledge(query: str, query_engine: BaseQueryEngine) -> str:
                         "url": node.node.metadata.get("url", "Unknown"),
                         "source": node.node.metadata.get("source", "Unknown"),
                         "score": getattr(node, "score", None),
-                        "start_char_idx": node.node.metadata.get(
-                            "start_char_idx", None
-                        ),
-                        "end_char_idx": node.node.metadata.get("end_char_idx", None),
-                        "node_id": getattr(node.node, "node_id", None),
                     }
                     sources.append(source_info)
 
