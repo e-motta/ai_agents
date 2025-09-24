@@ -44,11 +44,7 @@ const ChatInterface = ({ conversationId, userId, onConversationChange }) => {
       setMessages(formattedMessages);
     } catch (err) {
       console.error("Error loading conversation history:", err);
-      setError(
-        err instanceof ApiError
-          ? err.message
-          : "Erro ao carregar histórico da conversa"
-      );
+      setError("Erro ao carregar histórico da conversa");
     } finally {
       setIsLoadingHistory(false);
     }
@@ -105,9 +101,7 @@ const ChatInterface = ({ conversationId, userId, onConversationChange }) => {
       );
     } catch (err) {
       console.error("Error sending message:", err);
-      setError(
-        err instanceof ApiError ? err.message : "Erro ao enviar mensagem"
-      );
+      setError("Erro ao enviar mensagem");
 
       // Remove the pending message on error
       setMessages((prev) => prev.filter((msg) => !msg.isPending));
