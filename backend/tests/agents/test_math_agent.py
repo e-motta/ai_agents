@@ -177,7 +177,7 @@ class TestSolveMath:
         mock_response.content = ""
         mock_llm.ainvoke.return_value = mock_response
 
-        with pytest.raises(ValueError, match="Could not evaluate the expression"):
+        with pytest.raises(ValueError, match="I couldn't solve that mathematical expression"):
             await solve_math("2 + 2", mock_llm)
 
     @pytest.mark.asyncio
@@ -188,7 +188,7 @@ class TestSolveMath:
         mock_response.content = "Error"
         mock_llm.ainvoke.return_value = mock_response
 
-        with pytest.raises(ValueError, match="Could not evaluate the expression"):
+        with pytest.raises(ValueError, match="I couldn't solve that mathematical expression"):
             await solve_math("invalid expression", mock_llm)
 
     @pytest.mark.asyncio
@@ -199,7 +199,9 @@ class TestSolveMath:
         mock_response.content = "This is not a number"
         mock_llm.ainvoke.return_value = mock_response
 
-        with pytest.raises(ValueError, match="LLM returned a non-numerical result"):
+        with pytest.raises(
+            ValueError, match="The result is not a valid number"
+        ):
             await solve_math("2 + 2", mock_llm)
 
     @pytest.mark.asyncio
@@ -209,7 +211,7 @@ class TestSolveMath:
         mock_llm.ainvoke.side_effect = Exception("LLM Error")
 
         with pytest.raises(
-            ValueError, match="Error evaluating mathematical expression"
+            ValueError, match="I couldn't solve that mathematical expression"
         ):
             await solve_math("2 + 2", mock_llm)
 

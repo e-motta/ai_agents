@@ -18,6 +18,10 @@ RUN npm ci
 # Copy source code
 COPY . .
 
+# Accept build argument for docker-compose
+ARG DOCKER_COMPOSE=false
+ENV DOCKER_COMPOSE=$DOCKER_COMPOSE
+
 # Build the application
 RUN npm run build
 
@@ -27,9 +31,6 @@ WORKDIR /app
 
 # Copy built assets from builder stage
 COPY --from=builder /app/dist /usr/share/nginx/html
-
-# Copy custom nginx configuration
-COPY nginx.conf /etc/nginx/conf.d/default.conf
 
 # Copy startup script
 COPY start.sh /start.sh

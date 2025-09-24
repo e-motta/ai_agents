@@ -10,7 +10,7 @@ import time
 from langchain_openai import ChatOpenAI
 from langchain.schema import HumanMessage, SystemMessage
 
-from app.security.prompts import ROUTER_SYSTEM_PROMPT
+from app.security.prompts import ROUTER_SYSTEM_PROMPT, ROUTER_CONVERSION_PROMPT
 from app.enums import ResponseEnum
 from app.core.logging import get_logger, log_agent_decision
 
@@ -203,3 +203,89 @@ async def route_query(
         )
         # Default to Error for safety
         return ResponseEnum.Error
+
+
+async def convert_response(
+    original_query: str,
+    agent_response: str,
+    agent_type: str,
+    llm: ChatOpenAI,
+) -> str:
+    """
+    Convert raw agent response into conversational format using the Router Agent's conversion system.
+
+    Args:
+        original_query: The user's original query
+        agent_response: The raw response from the specialized agent
+        agent_type: The type of agent that generated the response (MathAgent or KnowledgeAgent)
+        llm: ChatOpenAI LLM instance to use for conversion
+
+    Returns:
+        str: The converted conversational response
+
+    Raises:
+        ValueError: If the conversion fails
+    """
+    start_time = time.time()
+
+    logger.info(
+        "Starting response conversion",
+        agent_type=agent_type,
+        response_preview=agent_response[:100],
+        query_preview=original_query[:100],
+    )
+
+    try:
+        # Create messages for conversion
+        messages = [
+            SystemMessage(content=ROUTER_CONVERSION_PROMPT),
+            HumanMessage(
+                content=f"""Original Query: "{original_query}"
+Agent Type: {agent_type}
+Agent Response: "{agent_response}"
+
+Please convert this agent response into a conversational format while preserving all factual accuracy."""
+            ),
+        ]
+
+        # Get response from LLM asynchronously
+        response = await llm.ainvoke(messages)
+
+        # Handle different response formats
+        if isinstance(response.content, list):
+            converted_response = " ".join(str(item) for item in response.content).strip()
+        else:
+            converted_response = response.content.strip()
+
+        execution_time = time.time() - start_time
+
+        # Validate that we got a reasonable response
+        if not converted_response:
+            logger.error(
+                "Response conversion failed - no result",
+                agent_type=agent_type,
+                execution_time=execution_time,
+            )
+            # Fallback to original response if conversion fails
+            return agent_response
+
+        logger.info(
+            "Response conversion completed",
+            agent_type=agent_type,
+            original_response_preview=agent_response[:100],
+            converted_response_preview=converted_response[:100],
+            execution_time=execution_time,
+        )
+
+        return converted_response
+
+    except Exception as e:
+        execution_time = time.time() - start_time
+        logger.error(
+            "Response conversion error",
+            agent_type=agent_type,
+            error=str(e),
+            execution_time=execution_time,
+        )
+        # Fallback to original response if conversion fails
+        return agent_response

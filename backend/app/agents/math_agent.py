@@ -8,6 +8,7 @@ from langchain_openai import ChatOpenAI
 
 from app.security.prompts import MATH_AGENT_SYSTEM_PROMPT
 from app.core.logging import get_logger
+from app.enums import ErrorMessage
 
 logger = get_logger(__name__)
 
@@ -54,19 +55,26 @@ async def solve_math(query: str, llm: ChatOpenAI) -> str:
                 query=query,
                 execution_time=execution_time,
             )
-            raise ValueError(f"Could not evaluate the expression: {query}")
+            raise ValueError(f"{ErrorMessage.MATH_EVALUATION_FAILED}: {query}")
 
         try:
             # Verify that the result is a valid number.
-            float(result)
+            result_float = float(result)
+            # Check for reasonable bounds
+            if abs(result_float) > 1e10:  # Prevent overflow
+                raise ValueError(f"Result too large: {result}")
+            if result_float != result_float:  # Check for NaN
+                raise ValueError(f"Invalid result: {result}")
         except ValueError:
             logger.error(
-                "Math evaluation failed - non-numerical result",
+                "Math evaluation failed - non-numerical or invalid result",
                 query=query,
                 result=result,
                 execution_time=execution_time,
             )
-            raise ValueError(f"LLM returned a non-numerical result: '{result}'")
+            raise ValueError(
+                f"{ErrorMessage.MATH_NON_NUMERICAL_RESULT}: '{result}'"
+            )
 
         logger.info(
             "Math evaluation completed",
@@ -86,5 +94,5 @@ async def solve_math(query: str, llm: ChatOpenAI) -> str:
             execution_time=execution_time,
         )
         raise ValueError(
-            f"Error evaluating mathematical expression '{query}': {str(e)}"
+            f"{ErrorMessage.MATH_EVALUATION_FAILED} '{query}': {str(e)}"
         ) from e

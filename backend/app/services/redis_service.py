@@ -13,7 +13,7 @@ import redis
 from redis.exceptions import RedisError
 
 from app.core.settings import get_settings
-from app.core.logging import get_logger, log_system_event
+from app.core.logging import get_logger
 
 # Configure logging
 logger = get_logger(__name__)
@@ -55,7 +55,12 @@ class RedisService:
             raise
 
     def add_message_to_history(
-        self, conversation_id: str, user_message: str, agent_response: str, user_id: str, agent: str
+        self,
+        conversation_id: str,
+        user_message: str,
+        agent_response: str,
+        user_id: str,
+        agent: str,
     ) -> bool:
         """
         Add a message exchange to conversation history.
@@ -212,79 +217,3 @@ class RedisService:
         except Exception as e:
             logger.error(f"Unexpected error getting user conversations: {e}")
             return []
-
-
-# Global Redis service instance (lazy initialization)
-redis_service = None
-
-
-def _get_redis_service() -> RedisService | None:
-    """Get Redis service instance with lazy initialization."""
-    global redis_service
-    if redis_service is None:
-        try:
-            redis_service = RedisService()
-        except Exception as e:
-            logger.warning(f"Redis service unavailable: {e}")
-            return None
-    return redis_service
-
-
-# Convenience functions for direct use
-def add_message_to_history(
-    user_id: str, conversation_id: str, user_message: str, agent_response: str, agent: str
-) -> bool:
-    """
-    Add a message exchange to conversation history.
-
-    Args:
-        conversation_id: Unique identifier for the conversation
-        user_message: The user's message
-        agent_response: The agent's response
-        user_id: The user's identifier
-        agent: The agent responsible for the response
-
-    Returns:
-        bool: True if successful, False otherwise
-    """
-    service = _get_redis_service()
-    if service is None:
-        logger.warning("Redis service unavailable, message not stored")
-        return False
-    return service.add_message_to_history(
-        conversation_id, user_message, agent_response, user_id, agent
-    )
-
-
-def get_history(conversation_id: str) -> list[dict[str, Any]]:
-    """
-    Retrieve conversation history.
-
-    Args:
-        conversation_id: Unique identifier for the conversation
-
-    Returns:
-        list[dict[str, Any]]: list of message exchanges in chronological order
-    """
-    service = _get_redis_service()
-    if service is None:
-        logger.warning("Redis service unavailable, returning empty history")
-        return []
-    return service.get_history(conversation_id)
-
-
-def get_user_conversations(user_id: str) -> list[str]:
-    """
-    Get all conversation IDs for a specific user.
-
-    Args:
-        user_id: Unique identifier for the user
-
-    Returns:
-        list[str]: List of conversation IDs belonging to the user
-    """
-    service = _get_redis_service()
-    if service is None:
-        logger.warning("Redis service unavailable, returning empty conversation list")
-        return []
-    return service.get_user_conversations(user_id)

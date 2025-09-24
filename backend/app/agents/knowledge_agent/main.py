@@ -11,6 +11,7 @@ from app.core.settings import get_settings
 from app.core.llm import setup_knowledge_agent_settings
 from app.agents.knowledge_agent.scraping import crawl_help_center
 from app.core.logging import get_logger
+from app.enums import ErrorMessage
 
 logger = get_logger(__name__)
 _settings = get_settings()
@@ -38,7 +39,7 @@ def build_index_from_scratch():
                     "This may be due to multiple pods accessing the same PVC. "
                     "Attempting to build index in existing directory.",
                     vector_store_path=str(VECTOR_STORE_PATH),
-                    error=str(e)
+                    error=str(e),
                 )
                 # Don't exit, continue with building in the existing directory
             else:
@@ -81,15 +82,21 @@ async def build_index_background():
         # Check if the collection actually exists, not just the directory
         if _settings.VECTOR_STORE_PATH.exists():
             try:
-                chroma_client = chromadb.PersistentClient(path=str(_settings.VECTOR_STORE_PATH / "chroma_db"))
+                chroma_client = chromadb.PersistentClient(
+                    path=str(_settings.VECTOR_STORE_PATH / "chroma_db")
+                )
                 chroma_client.get_collection(_settings.COLLECTION_NAME)
-                logger.info("Vector store and collection already exist, skipping background build")
+                logger.info(
+                    "Vector store and collection already exist, skipping background build"
+                )
                 return
             except Exception:
                 # Collection doesn't exist, proceed with building
                 pass
 
-        logger.info("Vector store or collection not found, starting background index build...")
+        logger.info(
+            "Vector store or collection not found, starting background index build..."
+        )
         from app.agents.knowledge_agent.main import build_index_from_scratch
 
         build_index_from_scratch()
@@ -189,11 +196,6 @@ async def query_knowledge(query: str, query_engine: BaseQueryEngine) -> str:
                         "url": node.node.metadata.get("url", "Unknown"),
                         "source": node.node.metadata.get("source", "Unknown"),
                         "score": getattr(node, "score", None),
-                        "start_char_idx": node.node.metadata.get(
-                            "start_char_idx", None
-                        ),
-                        "end_char_idx": node.node.metadata.get("end_char_idx", None),
-                        "node_id": getattr(node.node, "node_id", None),
                     }
                     sources.append(source_info)
 
@@ -204,7 +206,7 @@ async def query_knowledge(query: str, query_engine: BaseQueryEngine) -> str:
                 execution_time=execution_time,
                 sources=sources,
             )
-            return "I don't have information about that in the available documentation."
+            return ErrorMessage.KNOWLEDGE_NO_INFORMATION
 
         logger.info(
             "Knowledge base query completed",
@@ -224,4 +226,4 @@ async def query_knowledge(query: str, query_engine: BaseQueryEngine) -> str:
             error=str(e),
             execution_time=execution_time,
         )
-        raise ValueError(f"Error querying knowledge base: {str(e)}")
+        raise ValueError(f"{ErrorMessage.KNOWLEDGE_QUERY_FAILED}: {str(e)}")

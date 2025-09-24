@@ -1,6 +1,11 @@
 import React, { useState, useEffect } from "react";
 import { chatApi, ApiError } from "./services/api";
-import { getUserId, clearUserId, generateUserId, generateConversationId } from "./utils/storage";
+import {
+  getUserId,
+  clearUserId,
+  generateUserId,
+  generateConversationId,
+} from "./utils/storage";
 import ConversationList from "./components/ConversationList";
 import ChatInterface from "./components/ChatInterface";
 import ErrorNotification from "./components/ErrorNotification";
@@ -34,9 +39,7 @@ function App() {
       setConversations(data.conversation_ids || []);
     } catch (err) {
       console.error("Error loading conversations:", err);
-      setError(
-        err instanceof ApiError ? err.message : "Erro ao carregar conversas"
-      );
+      setError("Erro ao carregar conversas");
     } finally {
       setIsLoadingConversations(false);
     }
@@ -102,9 +105,15 @@ function App() {
           <div className="flex-1 flex items-center justify-center bg-gray-50">
             <div className="text-center text-gray-500">
               <div className="text-6xl mb-4">💬</div>
-              <h2 className="text-2xl font-semibold mb-2">Bem-vindo ao Chat!</h2>
-              <p className="text-lg mb-4">Selecione uma conversa existente ou crie uma nova para começar.</p>
-              <p className="text-sm text-gray-400">Use o botão "Nova Conversa" na barra lateral para começar.</p>
+              <h2 className="text-2xl font-semibold mb-2">
+                Bem-vindo ao Chat!
+              </h2>
+              <p className="text-lg mb-4">
+                Selecione uma conversa existente ou crie uma nova para começar.
+              </p>
+              <p className="text-sm text-gray-400">
+                Use o botão "Nova Conversa" na barra lateral para começar.
+              </p>
             </div>
           </div>
         )}

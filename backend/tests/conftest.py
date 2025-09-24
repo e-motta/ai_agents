@@ -6,13 +6,18 @@ without making external calls or warming up expensive resources.
 """
 
 import pytest
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, Mock
 from fastapi.testclient import TestClient
 from langchain_openai import ChatOpenAI
 from llama_index.core.base.base_query_engine import BaseQueryEngine
 
 from app.main import app
-from app.dependencies import get_math_llm, get_router_llm, get_knowledge_engine
+from app.dependencies import (
+    get_math_llm,
+    get_router_llm,
+    get_knowledge_engine,
+    get_redis_service,
+)
 
 
 @pytest.fixture
@@ -30,25 +35,37 @@ def mock_knowledge_engine():
 
 
 @pytest.fixture
+def mock_redis_service():
+    """Create a mock RedisService instance for testing."""
+    mock = Mock()
+    mock.add_message_to_history.return_value = True
+    mock.get_history.return_value = []
+    mock.get_user_conversations.return_value = []
+    return mock
+
+
+@pytest.fixture
 def test_client():
     """Create a test client for the FastAPI application."""
     return TestClient(app)
 
 
 @pytest.fixture(autouse=True)
-def mock_dependencies(mock_llm, mock_knowledge_engine):
+def mock_dependencies(mock_llm, mock_knowledge_engine, mock_redis_service):
     """
     Automatically mock all dependencies to prevent external calls.
 
     This fixture runs automatically for all tests and ensures that:
     - LLM instances are mocked
     - Knowledge engine is mocked
+    - Redis service is mocked
     - No external API calls are made
     """
     # Mock the dependency functions
     app.dependency_overrides[get_math_llm] = lambda: mock_llm
     app.dependency_overrides[get_router_llm] = lambda: mock_llm
     app.dependency_overrides[get_knowledge_engine] = lambda: mock_knowledge_engine
+    app.dependency_overrides[get_redis_service] = lambda: mock_redis_service
 
     yield
 

@@ -11,18 +11,23 @@ from app.dependencies import (
     get_math_llm,
     get_knowledge_engine,
     SanitizedMessage,
+    RedisServiceDep,
 )
-from app.agents.router_agent import route_query
+from app.agents.router_agent import route_query, convert_response
 from app.agents.math_agent import solve_math
 from app.agents.knowledge_agent import query_knowledge
-from app.enums import ResponseEnum
+from app.enums import ResponseEnum, ErrorMessage
 from app.models import ChatRequest, ChatResponse, WorkflowStep
 from app.core.logging import get_logger, log_system_event
 from app.core.decorators import log_and_handle_agent_errors
-from app.services.redis_service import (
-    add_message_to_history,
-    get_history,
-    get_user_conversations,
+from app.core.error_handling import (
+    create_validation_error,
+    create_math_error,
+    create_knowledge_error,
+    create_unsupported_language_error,
+    create_generic_error,
+    create_service_unavailable_error,
+    create_redis_error,
 )
 
 router = APIRouter()
@@ -40,9 +45,9 @@ async def _process_knowledge(context: dict[str, Any]) -> str:
     """Handle KnowledgeAgent flow."""
     knowledge_engine = context["knowledge_engine"]
     if knowledge_engine is None:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="The knowledge base is not available at the moment. It may be initializing.",
+        raise create_service_unavailable_error(
+            service_name="Knowledge Base",
+            details=ErrorMessage.KNOWLEDGE_BASE_UNAVAILABLE,
         )
     return await query_knowledge(context["sanitized_message"], knowledge_engine)
 
@@ -50,7 +55,7 @@ async def _process_knowledge(context: dict[str, Any]) -> str:
 def _process_unsupported_language(context: dict[str, Any]) -> tuple[str, WorkflowStep]:
     """Handle unsupported language decision."""
     payload = context["payload"]
-    final_response = "Unsupported language. Please ask in English or Portuguese."
+    final_response = ErrorMessage.UNSUPPORTED_LANGUAGE
     log_system_event(
         logger=logger,
         event="unsupported_language_rejected",
@@ -65,7 +70,7 @@ def _process_unsupported_language(context: dict[str, Any]) -> tuple[str, Workflo
 def _process_error(context: dict[str, Any]) -> tuple[str, WorkflowStep]:
     """Handle generic error decision."""
     payload = context["payload"]
-    final_response = "Sorry, I could not process your request."
+    final_response = ErrorMessage.GENERIC_ERROR
     log_system_event(
         logger=logger,
         event="error_processing_request",
@@ -91,14 +96,27 @@ HANDLER_BY_DECISION: dict[
 
 
 def _save_conversation_to_redis(
-    conversation_id: str, user_id: str, message: str, agent_response: str, agent: str
+    redis_service: RedisServiceDep,
+    conversation_id: str,
+    user_id: str,
+    message: str,
+    agent_response: str,
+    agent: str,
 ):
-    try:
-        redis_success = add_message_to_history(
+    if redis_service is None:
+        logger.warning(
+            "Redis service unavailable, conversation not saved",
+            conversation_id=conversation_id,
             user_id=user_id,
+        )
+        return
+
+    try:
+        redis_success = redis_service.add_message_to_history(
             conversation_id=conversation_id,
             user_message=message,
             agent_response=agent_response,
+            user_id=user_id,
             agent=agent,
         )
         if redis_success:
@@ -126,6 +144,7 @@ def _save_conversation_to_redis(
 async def chat(
     payload: ChatRequest,
     sanitized_message: SanitizedMessage,
+    redis_service: RedisServiceDep,
     router_llm: ChatOpenAI = Depends(get_router_llm),
     math_llm: ChatOpenAI = Depends(get_math_llm),
     knowledge_engine: BaseQueryEngine | None = Depends(get_knowledge_engine),
@@ -133,7 +152,7 @@ async def chat(
     start_time = time.time()
 
     if not sanitized_message or not sanitized_message.strip():
-        raise HTTPException(status_code=422, detail="'message' cannot be empty")
+        raise create_validation_error(details="'message' cannot be empty")
 
     logger.info(
         "Chat request received",
@@ -171,11 +190,30 @@ async def chat(
     handler = HANDLER_BY_DECISION.get(decision, _process_error)  # type: ignore
 
     if asyncio.iscoroutinefunction(handler):
-        final_response, step = await handler(context)
+        source_agent_response, step = await handler(context)
     else:
-        final_response, step = handler(context)
+        source_agent_response, step = handler(context)
 
     agent_workflow.append(step)
+
+    try:
+        if decision in [ResponseEnum.MathAgent]:
+            final_response = await convert_response(
+                original_query=sanitized_message,
+                agent_response=source_agent_response,
+                agent_type=str(decision),
+                llm=router_llm,
+            )
+        else:
+            final_response = source_agent_response
+    except Exception as e:
+        logger.error(
+            "Response conversion failed, using original response",
+            conversation_id=payload.conversation_id,
+            user_id=payload.user_id,
+            error=str(e),
+        )
+        final_response = source_agent_response
 
     total_execution_time = time.time() - start_time
     logger.info(
@@ -188,10 +226,11 @@ async def chat(
     )
 
     _save_conversation_to_redis(
+        redis_service,
         payload.conversation_id,
         payload.user_id,
         sanitized_message,
-        final_response,
+        source_agent_response,
         str(decision),
     )
 
@@ -200,12 +239,16 @@ async def chat(
         conversation_id=payload.conversation_id,
         router_decision=str(decision),
         response=final_response,
+        source_agent_response=source_agent_response,
         agent_workflow=agent_workflow,
     )
 
 
 @router.get("/chat/history/{conversation_id}")
-async def get_conversation_history(conversation_id: str) -> dict:
+async def get_conversation_history(
+    conversation_id: str,
+    redis_service: RedisServiceDep,
+) -> dict:
     """
     Retrieve conversation history for a given conversation ID.
 
@@ -220,8 +263,19 @@ async def get_conversation_history(conversation_id: str) -> dict:
         conversation_id=conversation_id,
     )
 
+    if redis_service is None:
+        logger.warning(
+            "Redis service unavailable, returning empty history",
+            conversation_id=conversation_id,
+        )
+        return {
+            "conversation_id": conversation_id,
+            "message_count": 0,
+            "history": [],
+        }
+
     try:
-        history = get_history(conversation_id)
+        history = redis_service.get_history(conversation_id)
 
         logger.info(
             "Conversation history retrieved",
@@ -241,13 +295,16 @@ async def get_conversation_history(conversation_id: str) -> dict:
             conversation_id=conversation_id,
             error=str(e),
         )
-        raise HTTPException(
-            status_code=500, detail=f"Failed to retrieve conversation history: {str(e)}"
+        raise create_redis_error(
+            details=f"Failed to retrieve conversation history: {str(e)}"
         )
 
 
 @router.get("/chat/user/{user_id}/conversations")
-async def get_user_conversations_endpoint(user_id: str) -> dict:
+async def get_user_conversations_endpoint(
+    user_id: str,
+    redis_service: RedisServiceDep,
+) -> dict:
     """
     Retrieve all conversation IDs for a specific user.
 
@@ -262,8 +319,19 @@ async def get_user_conversations_endpoint(user_id: str) -> dict:
         user_id=user_id,
     )
 
+    if redis_service is None:
+        logger.warning(
+            "Redis service unavailable, returning empty conversation list",
+            user_id=user_id,
+        )
+        return {
+            "user_id": user_id,
+            "conversation_count": 0,
+            "conversation_ids": [],
+        }
+
     try:
-        conversation_ids = get_user_conversations(user_id)
+        conversation_ids = redis_service.get_user_conversations(user_id)
 
         logger.info(
             "User conversations retrieved",
@@ -283,6 +351,6 @@ async def get_user_conversations_endpoint(user_id: str) -> dict:
             user_id=user_id,
             error=str(e),
         )
-        raise HTTPException(
-            status_code=500, detail=f"Failed to retrieve user conversations: {str(e)}"
+        raise create_redis_error(
+            details=f"Failed to retrieve user conversations: {str(e)}"
         )

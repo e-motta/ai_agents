@@ -5,7 +5,7 @@ const getApiBaseUrl = () => {
     return window.APP_CONFIG.API_BASE_URL;
   }
   // Fallback to build-time environment variable (for development)
-  return import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
+  return import.meta.env.VITE_API_BASE_URL || "/api/v1";
 };
 
 const API_BASE_URL = getApiBaseUrl();

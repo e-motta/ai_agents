@@ -12,6 +12,7 @@ from app.core.llm import (
 from app.agents.knowledge_agent import get_query_engine
 from app.security.sanitization import sanitize_user_input
 from app.models import ChatRequest
+from app.services.redis_service import RedisService
 
 
 @lru_cache(maxsize=1)
@@ -61,5 +62,18 @@ def get_sanitized_message_from_request(payload: "ChatRequest") -> str:
     return sanitize_user_input(payload.message)
 
 
+@lru_cache(maxsize=1)
+def get_redis_service() -> RedisService | None:
+    """
+    FastAPI Dependency: return a cached instance of the Redis service.
+
+    Uses LRU cache to ensure the expensive Redis connection is created once
+    per process and reused across requests.
+    Returns None if Redis is unavailable.
+    """
+    return RedisService()
+
+
 # Type alias for dependency injection
 SanitizedMessage = Annotated[str, Depends(get_sanitized_message_from_request)]
+RedisServiceDep = Annotated[RedisService | None, Depends(get_redis_service)]
