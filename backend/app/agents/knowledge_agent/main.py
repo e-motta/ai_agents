@@ -21,7 +21,6 @@ COLLECTION_NAME = _settings.COLLECTION_NAME
 def build_index_from_scratch():
     """
     Crawls, scrapes, and builds the vector store from scratch.
-    This is a slow, offline process that should NOT be called during a request.
     """
     start_time = time.time()
 
@@ -30,7 +29,20 @@ def build_index_from_scratch():
             "Vector store already exists. Deleting it to rebuild.",
             vector_store_path=str(VECTOR_STORE_PATH),
         )
-        shutil.rmtree(VECTOR_STORE_PATH)
+        try:
+            shutil.rmtree(VECTOR_STORE_PATH)
+        except OSError as e:
+            if e.errno == 16:  # Device or resource busy
+                logger.warning(
+                    "Cannot delete vector store directory (resource busy). "
+                    "This may be due to multiple pods accessing the same PVC. "
+                    "Attempting to build index in existing directory.",
+                    vector_store_path=str(VECTOR_STORE_PATH),
+                    error=str(e)
+                )
+                # Don't exit, continue with building in the existing directory
+            else:
+                raise
 
     logger.info(
         "Creating new vector store",
@@ -63,10 +75,34 @@ def build_index_from_scratch():
     )
 
 
-def get_query_engine():
+async def build_index_background():
+    """Build the vector index in the background if it doesn't exist."""
+    try:
+        # Check if the collection actually exists, not just the directory
+        if _settings.VECTOR_STORE_PATH.exists():
+            try:
+                chroma_client = chromadb.PersistentClient(path=str(_settings.VECTOR_STORE_PATH / "chroma_db"))
+                chroma_client.get_collection(_settings.COLLECTION_NAME)
+                logger.info("Vector store and collection already exist, skipping background build")
+                return
+            except Exception:
+                # Collection doesn't exist, proceed with building
+                pass
+
+        logger.info("Vector store or collection not found, starting background index build...")
+        from app.agents.knowledge_agent.main import build_index_from_scratch
+
+        build_index_from_scratch()
+        logger.info("Background index build completed successfully")
+    except Exception as e:
+        logger.warning(f"Background index build failed: {e}")
+        logger.info("Index will be built when first knowledge query is made")
+
+
+def get_query_engine() -> BaseQueryEngine | None:
     """
     FastAPI Dependency: Loads the pre-built index from disk and returns a
-    configured query engine. This function is cached to run only once.
+    configured query engine. Returns None if the vector store is not found.
     """
     start_time = time.time()
 
@@ -77,16 +113,30 @@ def get_query_engine():
     )
 
     if not VECTOR_STORE_PATH.exists():
-        logger.error("Vector store not found", vector_store_path=str(VECTOR_STORE_PATH))
-        raise FileNotFoundError("Vector store does not exist.")
+        logger.warning(
+            "Vector store not found. Knowledge agent is disabled until the index is built.",
+            vector_store_path=str(VECTOR_STORE_PATH),
+        )
+        return None
 
     # Setup LLM settings for LlamaIndex (this is safe to call multiple times)
     setup_knowledge_agent_settings()
 
     # Load the persisted ChromaDB store
-    chroma_client = chromadb.PersistentClient(path=str(VECTOR_STORE_PATH / "chroma_db"))
-    chroma_collection = chroma_client.get_collection(COLLECTION_NAME)
-    vector_store = ChromaVectorStore(chroma_collection=chroma_collection)
+    try:
+        chroma_client = chromadb.PersistentClient(
+            path=str(VECTOR_STORE_PATH / "chroma_db")
+        )
+        chroma_collection = chroma_client.get_collection(COLLECTION_NAME)
+        vector_store = ChromaVectorStore(chroma_collection=chroma_collection)
+    except Exception as e:
+        logger.warning(
+            "Failed to load vector store collection. Knowledge agent will be disabled until the index is built.",
+            collection_name=COLLECTION_NAME,
+            error=str(e),
+            vector_store_path=str(VECTOR_STORE_PATH),
+        )
+        return None
 
     # Load the index from the vector store
     index = VectorStoreIndex.from_vector_store(vector_store=vector_store)
@@ -132,16 +182,18 @@ async def query_knowledge(query: str, query_engine: BaseQueryEngine) -> str:
 
         # Extract source information from the response
         sources = []
-        if hasattr(response, 'source_nodes') and response.source_nodes:
+        if hasattr(response, "source_nodes") and response.source_nodes:
             for node in response.source_nodes:
-                if hasattr(node, 'node') and hasattr(node.node, 'metadata'):
+                if hasattr(node, "node") and hasattr(node.node, "metadata"):
                     source_info = {
-                        'url': node.node.metadata.get('url', 'Unknown'),
-                        'source': node.node.metadata.get('source', 'Unknown'),
-                        'score': getattr(node, 'score', None),
-                        'start_char_idx': node.node.metadata.get('start_char_idx', None),
-                        'end_char_idx': node.node.metadata.get('end_char_idx', None),
-                        'node_id': getattr(node.node, 'node_id', None)
+                        "url": node.node.metadata.get("url", "Unknown"),
+                        "source": node.node.metadata.get("source", "Unknown"),
+                        "score": getattr(node, "score", None),
+                        "start_char_idx": node.node.metadata.get(
+                            "start_char_idx", None
+                        ),
+                        "end_char_idx": node.node.metadata.get("end_char_idx", None),
+                        "node_id": getattr(node.node, "node_id", None),
                     }
                     sources.append(source_info)
 

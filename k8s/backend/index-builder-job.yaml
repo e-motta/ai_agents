@@ -1,0 +1,53 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: index-builder-job
+  namespace: default
+  labels:
+    app: cloudwalk-app
+    component: index-builder
+spec:
+  template:
+    metadata:
+      labels:
+        app: index-builder
+    spec:
+      restartPolicy: OnFailure
+      containers:
+      - name: index-builder
+        image: cloudwalk-backend:latest
+        imagePullPolicy: Never
+        command: ["python", "scripts/build_index.py"]
+        envFrom:
+        - configMapRef:
+            name: app-config
+        env:
+        - name: OPENAI_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: openai-secret
+              key: api-key
+        - name: REDIS_URL
+          value: "redis://redis-service:6379/0"
+        - name: LLM_MODEL
+          value: "gpt-3.5-turbo"
+        - name: EMBEDDING_MODEL
+          value: "text-embedding-3-small"
+        - name: CHUNK_SIZE
+          value: "1024"
+        - name: CHUNK_OVERLAP
+          value: "20"
+        volumeMounts:
+        - name: vector-store
+          mountPath: /app/vector_store
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+          limits:
+            memory: "1Gi"
+            cpu: "500m"
+      volumes:
+      - name: vector-store
+        persistentVolumeClaim:
+          claimName: backend-pvc

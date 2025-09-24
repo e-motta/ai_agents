@@ -1,0 +1,29 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: app-config
+  namespace: default
+  labels:
+    app: cloudwalk-app
+    version: v1
+data:
+  # Backend Configuration
+  REDIS_HOST: "redis-service"
+  REDIS_PORT: "6379"
+  REDIS_DB: "0"
+  ENVIRONMENT: "production"
+  VECTOR_STORE_PATH: "/app/vector_store"
+  COLLECTION_NAME: "infinitepay_docs"
+  BASE_URL: "https://ajuda.infinitepay.io/pt-BR/"
+  REDIS_CONVERSATION_TTL: "86400"
+  REDIS_SOCKET_CONNECT_TIMEOUT: "5"
+  REDIS_SOCKET_TIMEOUT: "5"
+
+  # Frontend Configuration
+  NODE_ENV: "production"
+  VITE_API_BASE_URL: "/api/v1"
+
+  # Application Settings
+  LOG_LEVEL: "INFO"
+  PYTHONUNBUFFERED: "1"
+  PYTHONDONTWRITEBYTECODE: "1"

@@ -30,7 +30,10 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "http://localhost:3000",  # Development frontend
-        "http://frontend:80",      # Frontend container
+        "http://localhost:3001",  # Alternative development port
+        "http://127.0.0.1:3000",  # Local development
+        "http://127.0.0.1:3001",  # Alternative local development
+        "http://frontend:80",  # Frontend container
         "http://agents-frontend",  # Frontend container name
     ],
     allow_credentials=True,
@@ -64,3 +67,9 @@ async def global_exception_handler(request: Request, exc: Exception) -> JSONResp
 
 
 app.include_router(chat_router, prefix="/api/v1")
+
+
+@app.get("/health")
+async def health_check():
+    """Health check endpoint for Kubernetes."""
+    return {"status": "healthy"}
