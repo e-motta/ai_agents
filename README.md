@@ -58,18 +58,29 @@ ENVIRONMENT=production
 
 ## 🐳 Running Locally with Docker
 
-### 1. Start All Services
+### 1. Clone the project
 
 ```bash
 # Clone the repository
 git clone <repository-url>
 cd ai_agents
+```
 
+### 2. Build the knowledge base’s vector index
+
+```bash
+# Run Docker Compose with build profile (should take around 5 minutes to finish)
+docker-compose --profile build up build-index
+```
+
+### 3. Start all services
+
+```
 # Start all services with Docker Compose
 docker-compose up -d --build
 ```
 
-### 2. Verify Services
+### 4. Verify Services
 
 ```bash
 # Check service status
@@ -81,14 +92,14 @@ docker-compose logs -f frontend
 docker-compose logs -f redis
 ```
 
-### 3. Access the Application
+### 5. Access the Application
 
 - **Frontend**: http://localhost:3000
 - **Backend API**: http://localhost:8000
 - **API Documentation**: http://localhost:8000/docs
 - **Redis**: localhost:6379
 
-### 4. Health Checks
+### 6. Health Checks
 
 ```bash
 # Backend health
@@ -106,7 +117,30 @@ curl http://localhost:3000/health
 - kubectl configured
 - Ingress NGINX controller
 
-### 2. Deploy the Application
+### 2. Environment Setup
+
+Create a `secrets.yaml` file in `k8s` the directory:
+
+```yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: openai-secret
+  namespace: default
+  labels:
+    app: cloudwalk-app
+type: Opaque
+data:
+  # Base64 encoded API key - replace with actual API key
+  # To encode: echo -n "your-api-key" | base64
+  api-key: "your-api-key-in-base-64"
+```
+
+### 3. Deploy the Application
+
+The deployment script takes care of all steps required for the deployment.
+
+Note: the script will need to build the vector index on the first run, which should take around 5 minutes.
 
 ```bash
 # Navigate to k8s directory
@@ -117,7 +151,7 @@ chmod +x deploy.sh
 ./deploy.sh
 ```
 
-### 3. Manual Deployment (Alternative)
+### 4. Manual Deployment (Alternative)
 
 ```bash
 # Deploy Ingress NGINX
@@ -140,7 +174,7 @@ kubectl apply -f frontend/
 kubectl apply -f ingress-local.yaml
 ```
 
-### 4. Verify Deployment
+### 5. Verify Deployment
 
 ```bash
 # Check pod status
@@ -158,7 +192,7 @@ kubectl logs -l app=frontend
 kubectl logs -l app=redis
 ```
 
-### 5. Access the Application Frontend
+### 6. Access the Application Frontend
 
 - **Local**: http://localhost/frontend (configured via ingress)
 

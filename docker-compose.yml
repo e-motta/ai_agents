@@ -20,6 +20,24 @@ services:
     networks:
       - app-network
 
+  # Build index service - runs once to build the knowledge index
+  build-index:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.build-index
+    container_name: agents-build-index
+    environment:
+      - ENVIRONMENT=production
+    volumes:
+      - ./backend:/app
+      - /app/__pycache__
+    networks:
+      - app-network
+    env_file:
+      - ./backend/.env
+    profiles:
+      - build
+
   # FastAPI backend service
   backend:
     build:

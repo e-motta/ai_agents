@@ -26,20 +26,17 @@ kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/cont
 # Note: Secrets are now managed via secrets.yaml file
 echo "📋 Using secrets from secrets.yaml file"
 
-# Deploy ConfigMap and Secrets FIRST (needed by the index builder job)
+# Deploy ConfigMap and Secrets
 echo "⚙️ Deploying Configuration and Secrets..."
 kubectl apply -f configmap.yaml
 kubectl apply -f secrets.yaml
 
-# Deploy Redis (other services depend on it)
-echo "📦 Deploying Redis..."
-kubectl apply -f redis/configmap.yaml
-kubectl apply -f redis/statefulset.yaml
-kubectl apply -f redis/service.yaml
-
-# Wait for Redis to be ready
-echo "⏳ Waiting for Redis to be ready..."
-kubectl wait --for=condition=ready pod -l app=redis --timeout=300s
+# Create Docker images
+# IMPORTANT: This step assumes a local Kubernetes environment (e.g., Minikube, Docker Desktop)
+# where the cluster can access locally built images. For other environments,
+# you must push these images to a container registry and update the Kubernetes manifests.
+docker build -t cloudwalk-backend:latest ../backend
+docker build -t cloudwalk-frontend:latest ../frontend
 
 # Deploy PVC
 echo "📦 Deploying PVC..."
@@ -65,6 +62,16 @@ else
     echo "⚠️  Index builder job failed, but continuing with deployment"
     echo "   The index will be built on-demand when needed"
 fi
+
+# Deploy Redis (other services depend on it)
+echo "📦 Deploying Redis..."
+kubectl apply -f redis/configmap.yaml
+kubectl apply -f redis/statefulset.yaml
+kubectl apply -f redis/service.yaml
+
+# Wait for Redis to be ready
+echo "⏳ Waiting for Redis to be ready..."
+kubectl wait --for=condition=ready pod -l app=redis --timeout=300s
 
 # Deploy Backend
 echo "🔧 Deploying Backend..."
