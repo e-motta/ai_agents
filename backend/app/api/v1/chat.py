@@ -13,7 +13,7 @@ from app.dependencies import (
     SanitizedMessage,
     RedisServiceDep,
 )
-from app.agents.router_agent import route_query
+from app.agents.router_agent import route_query, convert_response
 from app.agents.math_agent import solve_math
 from app.agents.knowledge_agent import query_knowledge
 from app.enums import ResponseEnum, ErrorMessage
@@ -190,11 +190,30 @@ async def chat(
     handler = HANDLER_BY_DECISION.get(decision, _process_error)  # type: ignore
 
     if asyncio.iscoroutinefunction(handler):
-        final_response, step = await handler(context)
+        source_agent_response, step = await handler(context)
     else:
-        final_response, step = handler(context)
+        source_agent_response, step = handler(context)
 
     agent_workflow.append(step)
+
+    try:
+        if decision in [ResponseEnum.MathAgent]:
+            final_response = await convert_response(
+                original_query=sanitized_message,
+                agent_response=source_agent_response,
+                agent_type=str(decision),
+                llm=router_llm,
+            )
+        else:
+            final_response = source_agent_response
+    except Exception as e:
+        logger.error(
+            "Response conversion failed, using original response",
+            conversation_id=payload.conversation_id,
+            user_id=payload.user_id,
+            error=str(e),
+        )
+        final_response = source_agent_response
 
     total_execution_time = time.time() - start_time
     logger.info(
@@ -211,7 +230,7 @@ async def chat(
         payload.conversation_id,
         payload.user_id,
         sanitized_message,
-        final_response,
+        source_agent_response,
         str(decision),
     )
 
@@ -220,6 +239,7 @@ async def chat(
         conversation_id=payload.conversation_id,
         router_decision=str(decision),
         response=final_response,
+        source_agent_response=source_agent_response,
         agent_workflow=agent_workflow,
     )
 

@@ -9,6 +9,7 @@ import pytest
 from unittest.mock import AsyncMock
 from app.agents.router_agent import (
     route_query,
+    convert_response,
     _validate_response,
     _detect_suspicious_content,
 )
@@ -230,3 +231,136 @@ class TestRouteQuery:
         call_args = mock_llm.ainvoke.call_args[0][0]
         human_message = call_args[1]  # Second message is HumanMessage
         assert "2 + 2" in human_message.content  # Should be cleaned
+
+
+class TestConvertResponse:
+    """Test the convert_response function."""
+
+    @pytest.mark.asyncio
+    async def test_convert_math_response(self, mock_llm):
+        """Test conversion of math agent response."""
+        # Mock LLM response
+        mock_response = AsyncMock()
+        mock_response.content = "The answer is 4. So 2 + 2 equals 4."
+        mock_llm.ainvoke.return_value = mock_response
+
+        result = await convert_response(
+            original_query="What is 2 + 2?",
+            agent_response="4",
+            agent_type="MathAgent",
+            llm=mock_llm,
+        )
+        assert result == "The answer is 4. So 2 + 2 equals 4."
+        mock_llm.ainvoke.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_convert_knowledge_response(self, mock_llm):
+        """Test conversion of knowledge agent response."""
+        # Mock LLM response
+        mock_response = AsyncMock()
+        mock_response.content = "According to our documentation, the transaction fees are 2.5% per transaction."
+        mock_llm.ainvoke.return_value = mock_response
+
+        result = await convert_response(
+            original_query="What are the fees?",
+            agent_response="The fees are 2.5% per transaction.",
+            agent_type="KnowledgeAgent",
+            llm=mock_llm,
+        )
+        assert result == "According to our documentation, the transaction fees are 2.5% per transaction."
+        mock_llm.ainvoke.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_convert_response_list_content(self, mock_llm):
+        """Test handling of list content in LLM response."""
+        # Mock LLM response with list content
+        mock_response = AsyncMock()
+        mock_response.content = ["The answer is 4. So 2 + 2 equals 4."]
+        mock_llm.ainvoke.return_value = mock_response
+
+        result = await convert_response(
+            original_query="What is 2 + 2?",
+            agent_response="4",
+            agent_type="MathAgent",
+            llm=mock_llm,
+        )
+        assert result == "The answer is 4. So 2 + 2 equals 4."
+        mock_llm.ainvoke.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_convert_response_empty_result_fallback(self, mock_llm):
+        """Test fallback to original response when conversion fails."""
+        # Mock LLM response with empty content
+        mock_response = AsyncMock()
+        mock_response.content = ""
+        mock_llm.ainvoke.return_value = mock_response
+
+        result = await convert_response(
+            original_query="What is 2 + 2?",
+            agent_response="4",
+            agent_type="MathAgent",
+            llm=mock_llm,
+        )
+        assert result == "4"  # Should fallback to original response
+        mock_llm.ainvoke.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_convert_response_llm_exception_fallback(self, mock_llm):
+        """Test fallback to original response when LLM raises exception."""
+        # Mock LLM to raise an exception
+        mock_llm.ainvoke.side_effect = Exception("LLM Error")
+
+        result = await convert_response(
+            original_query="What is 2 + 2?",
+            agent_response="4",
+            agent_type="MathAgent",
+            llm=mock_llm,
+        )
+        assert result == "4"  # Should fallback to original response
+        mock_llm.ainvoke.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_convert_response_whitespace_handling(self, mock_llm):
+        """Test handling of whitespace in LLM response."""
+        # Mock LLM response with whitespace
+        mock_response = AsyncMock()
+        mock_response.content = "  The answer is 4. So 2 + 2 equals 4.  "
+        mock_llm.ainvoke.return_value = mock_response
+
+        result = await convert_response(
+            original_query="What is 2 + 2?",
+            agent_response="4",
+            agent_type="MathAgent",
+            llm=mock_llm,
+        )
+        assert result == "The answer is 4. So 2 + 2 equals 4."  # Should be trimmed
+        mock_llm.ainvoke.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_convert_response_with_different_agent_types(self, mock_llm):
+        """Test conversion with different agent types."""
+        # Mock LLM response
+        mock_response = AsyncMock()
+        mock_response.content = "Converted response"
+        mock_llm.ainvoke.return_value = mock_response
+
+        # Test with MathAgent
+        result = await convert_response(
+            original_query="What is 2 + 2?",
+            agent_response="4",
+            agent_type="MathAgent",
+            llm=mock_llm,
+        )
+        assert result == "Converted response"
+
+        # Test with KnowledgeAgent
+        result = await convert_response(
+            original_query="What are the fees?",
+            agent_response="The fees are 2.5%.",
+            agent_type="KnowledgeAgent",
+            llm=mock_llm,
+        )
+        assert result == "Converted response"
+
+        # Should be called twice
+        assert mock_llm.ainvoke.call_count == 2

@@ -19,6 +19,7 @@ class ChatResponse(BaseModel):
     conversation_id: str
     router_decision: str
     response: str
+    source_agent_response: str
     agent_workflow: list[WorkflowStep]
 
 
