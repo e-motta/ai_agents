@@ -16,10 +16,19 @@ from app.dependencies import (
 from app.agents.router_agent import route_query
 from app.agents.math_agent import solve_math
 from app.agents.knowledge_agent import query_knowledge
-from app.enums import ResponseEnum
+from app.enums import ResponseEnum, ErrorMessage
 from app.models import ChatRequest, ChatResponse, WorkflowStep
 from app.core.logging import get_logger, log_system_event
 from app.core.decorators import log_and_handle_agent_errors
+from app.core.error_handling import (
+    create_validation_error,
+    create_math_error,
+    create_knowledge_error,
+    create_unsupported_language_error,
+    create_generic_error,
+    create_service_unavailable_error,
+    create_redis_error,
+)
 
 router = APIRouter()
 logger = get_logger(__name__)
@@ -36,9 +45,9 @@ async def _process_knowledge(context: dict[str, Any]) -> str:
     """Handle KnowledgeAgent flow."""
     knowledge_engine = context["knowledge_engine"]
     if knowledge_engine is None:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="The knowledge base is not available at the moment. It may be initializing.",
+        raise create_service_unavailable_error(
+            service_name="Knowledge Base",
+            details=ErrorMessage.KNOWLEDGE_BASE_UNAVAILABLE,
         )
     return await query_knowledge(context["sanitized_message"], knowledge_engine)
 
@@ -46,7 +55,7 @@ async def _process_knowledge(context: dict[str, Any]) -> str:
 def _process_unsupported_language(context: dict[str, Any]) -> tuple[str, WorkflowStep]:
     """Handle unsupported language decision."""
     payload = context["payload"]
-    final_response = "Unsupported language. Please ask in English or Portuguese."
+    final_response = ErrorMessage.UNSUPPORTED_LANGUAGE
     log_system_event(
         logger=logger,
         event="unsupported_language_rejected",
@@ -61,7 +70,7 @@ def _process_unsupported_language(context: dict[str, Any]) -> tuple[str, Workflo
 def _process_error(context: dict[str, Any]) -> tuple[str, WorkflowStep]:
     """Handle generic error decision."""
     payload = context["payload"]
-    final_response = "Sorry, I could not process your request."
+    final_response = ErrorMessage.GENERIC_ERROR
     log_system_event(
         logger=logger,
         event="error_processing_request",
@@ -143,7 +152,7 @@ async def chat(
     start_time = time.time()
 
     if not sanitized_message or not sanitized_message.strip():
-        raise HTTPException(status_code=422, detail="'message' cannot be empty")
+        raise create_validation_error(details="'message' cannot be empty")
 
     logger.info(
         "Chat request received",
@@ -266,8 +275,8 @@ async def get_conversation_history(
             conversation_id=conversation_id,
             error=str(e),
         )
-        raise HTTPException(
-            status_code=500, detail=f"Failed to retrieve conversation history: {str(e)}"
+        raise create_redis_error(
+            details=f"Failed to retrieve conversation history: {str(e)}"
         )
 
 
@@ -322,6 +331,6 @@ async def get_user_conversations_endpoint(
             user_id=user_id,
             error=str(e),
         )
-        raise HTTPException(
-            status_code=500, detail=f"Failed to retrieve user conversations: {str(e)}"
+        raise create_redis_error(
+            details=f"Failed to retrieve user conversations: {str(e)}"
         )

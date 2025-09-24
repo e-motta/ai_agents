@@ -11,6 +11,7 @@ from app.core.settings import get_settings
 from app.core.llm import setup_knowledge_agent_settings
 from app.agents.knowledge_agent.scraping import crawl_help_center
 from app.core.logging import get_logger
+from app.enums import ErrorMessage
 
 logger = get_logger(__name__)
 _settings = get_settings()
@@ -205,7 +206,7 @@ async def query_knowledge(query: str, query_engine: BaseQueryEngine) -> str:
                 execution_time=execution_time,
                 sources=sources,
             )
-            return "I don't have information about that in the available documentation."
+            return ErrorMessage.KNOWLEDGE_NO_INFORMATION
 
         logger.info(
             "Knowledge base query completed",
@@ -225,4 +226,4 @@ async def query_knowledge(query: str, query_engine: BaseQueryEngine) -> str:
             error=str(e),
             execution_time=execution_time,
         )
-        raise ValueError(f"Error querying knowledge base: {str(e)}")
+        raise ValueError(f"{ErrorMessage.KNOWLEDGE_QUERY_FAILED}: {str(e)}")

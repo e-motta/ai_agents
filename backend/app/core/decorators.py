@@ -6,6 +6,7 @@ from structlog.stdlib import BoundLogger
 
 from app.core.logging import log_agent_processing
 from app.models import ChatRequest, WorkflowStep
+from app.core.error_handling import create_math_error, create_knowledge_error
 
 
 def log_and_handle_agent_errors(
@@ -43,7 +44,13 @@ def log_and_handle_agent_errors(
                     execution_time=execution_time,
                     query_preview=query_preview,
                 )
-                raise HTTPException(status_code=error_status_code, detail=str(e))
+                # Create appropriate error based on agent type
+                if agent_name == "MathAgent":
+                    raise create_math_error(details=str(e))
+                elif agent_name == "KnowledgeAgent":
+                    raise create_knowledge_error(details=str(e))
+                else:
+                    raise HTTPException(status_code=error_status_code, detail=str(e))
 
         return wrapper
 

@@ -1,3 +1,4 @@
+from typing import Optional
 from pydantic import BaseModel
 
 
@@ -19,3 +20,9 @@ class ChatResponse(BaseModel):
     router_decision: str
     response: str
     agent_workflow: list[WorkflowStep]
+
+
+class ErrorResponse(BaseModel):
+    error: str
+    code: str
+    details: Optional[str] = None

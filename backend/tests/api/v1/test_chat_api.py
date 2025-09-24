@@ -199,7 +199,9 @@ class TestChatAPI:
 
         assert response.status_code == 422
         data = response.json()
-        assert "cannot be empty" in data["detail"]
+        assert data["detail"]["error"] == "Request validation failed."
+        assert data["detail"]["code"] == "VALIDATION_ERROR"
+        assert "cannot be empty" in data["detail"]["details"]
 
     def test_chat_whitespace_only_message_validation(
         self, test_client, mock_llm, mock_knowledge_engine
@@ -215,7 +217,9 @@ class TestChatAPI:
 
         assert response.status_code == 422
         data = response.json()
-        assert "cannot be empty" in data["detail"]
+        assert data["detail"]["error"] == "Request validation failed."
+        assert data["detail"]["code"] == "VALIDATION_ERROR"
+        assert "cannot be empty" in data["detail"]["details"]
 
     def test_chat_missing_required_fields(
         self, test_client, mock_llm, mock_knowledge_engine
@@ -260,7 +264,9 @@ class TestChatAPI:
 
         assert response.status_code == 400
         data = response.json()
-        assert "Error evaluating mathematical expression" in data["detail"]
+        assert data["detail"]["error"] == "I couldn't solve that mathematical expression."
+        assert data["detail"]["code"] == "MATH_ERROR"
+        assert "What is 2 + 2?" in data["detail"]["details"]
 
     def test_chat_knowledge_agent_exception_handling(
         self, test_client, mock_llm, mock_knowledge_engine
@@ -284,7 +290,9 @@ class TestChatAPI:
 
         assert response.status_code == 400
         data = response.json()
-        assert "Error querying knowledge base" in data["detail"]
+        assert data["detail"]["error"] == "Error querying the knowledge base."
+        assert data["detail"]["code"] == "KNOWLEDGE_ERROR"
+        assert "Knowledge Error" in data["detail"]["details"]
 
     def test_chat_suspicious_content_routing(
         self, test_client, mock_llm, mock_knowledge_engine
@@ -340,9 +348,11 @@ class TestChatAPI:
 
         response = test_client.get("/api/v1/chat/history/test_conv_123")
 
-        assert response.status_code == 500
+        assert response.status_code == 503
         data = response.json()
-        assert "Failed to retrieve conversation history" in data["detail"]
+        assert data["detail"]["error"] == "Redis operation failed."
+        assert data["detail"]["code"] == "REDIS_ERROR"
+        assert "Failed to retrieve conversation history" in data["detail"]["details"]
 
         # Verify Redis service was called
         mock_redis_service.get_history.assert_called_once_with("test_conv_123")
@@ -379,9 +389,11 @@ class TestChatAPI:
 
         response = test_client.get("/api/v1/chat/user/test_user_123/conversations")
 
-        assert response.status_code == 500
+        assert response.status_code == 503
         data = response.json()
-        assert "Failed to retrieve user conversations" in data["detail"]
+        assert data["detail"]["error"] == "Redis operation failed."
+        assert data["detail"]["code"] == "REDIS_ERROR"
+        assert "Failed to retrieve user conversations" in data["detail"]["details"]
 
         # Verify Redis service was called
         mock_redis_service.get_user_conversations.assert_called_once_with(
