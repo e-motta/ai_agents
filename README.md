@@ -1,6 +1,6 @@
 # CloudWalk AI Agents System
 
-A sophisticated multi-agent AI system built with FastAPI, React, and Redis, designed to handle mathematical computations and knowledge-based queries for InfinitePay services.
+A multi-agent AI system built with FastAPI, React, and Redis, designed to handle mathematical computations and knowledge-based queries for InfinitePay services.
 
 ## 🏗️ Architecture Overview
 
@@ -62,7 +62,7 @@ ENVIRONMENT=production
 
 ```bash
 # Clone the repository
-git clone <repository-url>
+git clone https://github.com/e-motta/ai_agents.git
 cd ai_agents
 ```
 
@@ -151,30 +151,7 @@ chmod +x deploy.sh
 ./deploy.sh
 ```
 
-### 4. Manual Deployment (Alternative)
-
-```bash
-# Deploy Ingress NGINX
-kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.2.1/deploy/static/provider/cloud/deploy.yaml
-
-# Deploy configuration and secrets
-kubectl apply -f configmap.yaml
-kubectl apply -f secrets.yaml
-
-# Deploy Redis
-kubectl apply -f redis/
-
-# Deploy backend
-kubectl apply -f backend/
-
-# Deploy frontend
-kubectl apply -f frontend/
-
-# Deploy ingress
-kubectl apply -f ingress-local.yaml
-```
-
-### 5. Verify Deployment
+### 4. Verify Deployment
 
 ```bash
 # Check pod status
@@ -192,7 +169,7 @@ kubectl logs -l app=frontend
 kubectl logs -l app=redis
 ```
 
-### 6. Access the Application Frontend
+### 5. Access the Application Frontend
 
 - **Local**: http://localhost/frontend (configured via ingress)
 
